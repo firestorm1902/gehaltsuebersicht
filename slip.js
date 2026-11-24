@@ -126,7 +126,9 @@
     for (let i = 1; i <= doc.numPages; i++) {
       const pg = await doc.getPage(i);
       pages.push(itemsToLines((await pg.getTextContent()).items));
+      pg.cleanup();
     }
+    try { await doc.destroy(); } catch (e) {}
     return parseSlip(pages);
   }
 

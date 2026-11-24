@@ -1,5 +1,5 @@
 // Version hier UND in index.html (VERSION) erhöhen, damit Geräte das Update bekommen.
-const VERSION = '1.4.0';
+const VERSION = '1.5.0';
 const CACHE = 'gehalt-' + VERSION;
 const ASSETS = [
   './',
@@ -12,7 +12,8 @@ const ASSETS = [
   './icons/apple-touch-icon.png',
   './slip.js',
   './lib/pdf.min.js',
-  './lib/pdf.worker.min.js'
+  './lib/pdf.worker.min.js',
+  './lib/jszip.min.js'
 ];
 
 self.addEventListener('install', e => {
