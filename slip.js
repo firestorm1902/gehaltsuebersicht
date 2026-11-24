@@ -72,7 +72,9 @@
           const rest = m[2]; const n = nums(rest); if (!n.length) continue;
           const cut = rest.search(/\s(?:ST\/SV\s)?(?:EZ\s)?\d\d\s\d(?=\s|$)/);
           let name = (cut > 0 ? rest.slice(0, cut) : rest.replace(NUM, '')).replace(/\s+ST\/SV$/, '').trim();
-          p.items.push({ code: m[1], name, amount: last(n), free: /\bN$/.test(rest) });
+          const cm = cut > 0 ? rest.slice(cut).match(/(\d\d)\s(\d)(?=\s|$)/) : null;
+          // st: 00 steuerfrei, 01 laufend, 02 sonstiger Bezug, 38 bAV frei · sv: 0 frei, 1 laufend, 5 einmalig
+          p.items.push({ code: m[1], name, amount: last(n), free: /\bN$/.test(rest), st: cm ? cm[1] : null, sv: cm ? cm[2] : null });
         }
         continue;
       }

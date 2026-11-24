@@ -60,6 +60,10 @@ button.danger{border-color:var(--neg);color:var(--neg);background:transparent}
 .legend2{display:flex;gap:16px;flex-wrap:wrap;font-size:13px;color:var(--mut);margin:6px 0 10px}.legend2 i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:6px}
 
 .wt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.wt label{font-size:13px;align-content:end}.wt input{text-align:right}
+.poslist{border-top:1px solid var(--ink)}
+.pos{padding:10px 0;border-bottom:1px solid var(--rule)}.pos .pt{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.pos .pn{min-width:0}.pos .pt b{white-space:nowrap;font-variant-numeric:tabular-nums}.pos .pd{font-size:13px;color:var(--mut);margin-top:2px;font-variant-numeric:tabular-nums}
+.pos.tot{border-bottom:2px solid var(--ink);font-weight:600}.pos .tag{margin-left:6px}
 h3{font:600 16px Inter,system-ui,sans-serif;margin:26px 0 10px}
 .up-box{margin-top:16px;display:grid;gap:10px}
 .prev{background:var(--card);border-radius:10px;padding:16px;display:grid;gap:10px}
@@ -220,8 +224,9 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.6.1';
+const VERSION='1.7.0';
 const CHANGELOG=[
+  ['1.7.0','24.11.2026','Monatsanalyse: alle Positionen mit anteiliger Lohnsteuer und Sozialversicherung und was davon netto bleibt. Weg vom Netto zur Auszahlung. Netto-Kosten von Jobrad, Betriebsrente und Kantine.'],
   ['1.6.1','24.11.2026','Arbeitszeit einstellbar (Std./Woche, Urlaubs- und Feiertage): Tageslohn, Lohn pro bezahlter und pro gearbeiteter Stunde, Brutto-Stundenlohn.'],
   ['1.6.0','24.11.2026','Neuer Bereich Analyse: Jahr-zu-Jahr-Kurven (monatlich und kumuliert) mit Hochrechnung, gleicher Monat über die Jahre, Saisonprofil, Heatmap, Grundniveau vs. Sonderzahlungen, Rekorde und Wachstum, Brutto/Netto-Entwicklung, Abgabenquote, Jahreswerte und Gehaltserhöhungen aus den PDFs.'],
   ['1.5.0','24.11.2026','Massenupload: viele PDFs oder eine ZIP-Datei auf einmal, mit Fortschritt und Vorschau-Tabelle (neu / geändert / unverändert). Erklärung der Monatswert-Optionen.'],
@@ -455,6 +460,18 @@ function showPending(){
   $('pdfNo').onclick=()=>{pending=[];$('pdfPrev').innerHTML=''};
 }
 $('anaSel').addEventListener('change',e=>{anaMonth=e.target.value;ana()});
+function alloc(s){
+  const sp=new Set((s.special||[]).map(x=>x.name));
+  const items=(s.items||[]).map(i=>{let st=i.st,sv=i.sv;if(st==null){st=sp.has(i.name)?'02':'01';sv=sp.has(i.name)?'5':'1'}
+    const kind=i.free?(i.amount<0?'umw':'info'):(st==='02'||sv==='5')?'sonst':'lfd';return{...i,st,sv,kind,tax:0,svA:0}});
+  const taxOn=i=>i.st!=='00'&&i.st!=='38',svOn=i=>i.sv!=='0';
+  const svLfd=(s.svTotal||0)-(s.svEinmal||0);
+  const L=items.filter(i=>i.kind==='lfd'||i.kind==='umw'),S=items.filter(i=>i.kind==='sonst');
+  const share=(arr,f,total,k)=>{const b=sum(arr.filter(f).map(i=>i.amount));if(Math.abs(b)<0.01)return;for(const i of arr)if(f(i))i[k]=total*i.amount/b};
+  share(L,taxOn,s.taxLfd||0,'tax');share(L,svOn,svLfd,'svA');share(S,taxOn,s.taxSonst||0,'tax');share(S,svOn,s.svEinmal||0,'svA');
+  for(const i of items)i.net=i.kind==='umw'?-(i.tax+i.svA):i.kind==='info'?0:i.amount-i.tax-i.svA;
+  return items;
+}
 function wfRow(label,from,to,base,color,val,cls){
   const l=Math.min(from,to)/base*100,w=Math.abs(to-from)/base*100;
   return`<div class="wf ${cls||''}"><span>${label}</span><div class="tr"><span style="left:${Math.max(0,l).toFixed(2)}%;width:${Math.min(100,w).toFixed(2)}%;background:${color}"></span></div><span class="v">${val}</span></div>`;
@@ -484,23 +501,59 @@ function ana(){
   for(const r of s.retros||[])notes.push(`<b>Rückrechnung ${esc(labLong(r.month))}:</b> nachträglich ${E(r.brutto)} brutto, davon ${E(r.netto)} netto ausgezahlt – ${esc((r.items||[]).map(i=>i.name).join(', ').replace(/\.+$/,''))}.`);
   if(pv){const d=s.brutto-pv.brutto,dn=s.netto-pv.netto;notes.push(`<b>Gegenüber ${esc(labLong(pv.month))}:</b> Brutto ${d>=0?'+':'−'}${E(Math.abs(d))}, Netto ${dn>=0?'+':'−'}${E(Math.abs(dn))}, Auszahlung ${s.auszahlung-pv.auszahlung>=0?'+':'−'}${E(Math.abs(s.auszahlung-pv.auszahlung))}.`)}
   const pm={};for(const i of pv?.items||[])pm[i.name]=(pm[i.name]||0)+i.amount;
-  const seen=new Set();
-  const itemRows=(s.items||[]).map(i=>{seen.add(i.name);const old=pm[i.name];const d=old==null?null:i.amount-old;
-    return`<tr><td class="nm">${esc(i.name)}${i.free?'<span class="tag">frei</span>':''}${pv&&old==null?'<span class="tag">neu</span>':''}</td><td>${E(i.amount)}</td>${pv?`<td class="${d==null||!d?'':d>0?'up':'dn'}">${d==null?'–':d?(d>0?'+':'−')+E(Math.abs(d)):'='}</td>`:''}</tr>`}).join('');
+  const seen=new Set((s.items||[]).map(i=>i.name));
   const gone=pv?Object.keys(pm).filter(n=>!seen.has(n)):[];
+  const it=alloc(s);
+  const bez=it.filter(i=>i.kind==='lfd'||i.kind==='sonst'),umw=it.filter(i=>i.kind==='umw'),info=it.filter(i=>i.kind==='info');
+  const dv=i=>{if(!pv)return'';const old=pm[i.name];if(old==null)return' · <span class="tag">neu</span>';const d=i.amount-old;return Math.abs(d)<.005?' · wie Vormonat':' · Vormonat '+sgn(d)};
+  const posRow=(name,tags,br,tx,sv,net,extra)=>`<div class="pos"><div class="pt"><span class="pn">${name}${tags}</span><b class="${net<0?'dn':''}">${net<0?'−':''}${E(Math.abs(net))}</b></div>
+    <div class="pd">${br}${tx||sv?` · Steuer ${tx>=0?'−':'+'}${E(Math.abs(tx))} · SV ${sv>=0?'−':'+'}${E(Math.abs(sv))}`:''}${extra||''}</div></div>`;
+  const posHTML=bez.map(i=>{const r=i.amount?i.net/i.amount:0;
+      const tags=(i.kind==='sonst'?'<span class="tag">Sonderzahlung</span>':'')+(i.st==='00'&&i.sv==='0'?'<span class="tag">steuer- und SV-frei</span>':'');
+      return posRow(esc(i.name),tags,'Brutto '+E(i.amount),i.tax,i.svA,i.net,(i.amount>0?` · bleibt <b>${P(r)}</b>`:'')+dv(i))}).join('')
+    +(umw.length?posRow('Ersparnis durch Entgeltumwandlung','',`${esc(umw.map(i=>i.name).join(', '))} senken das steuer- und SV-pflichtige Brutto um ${E(-sum(umw.map(i=>i.amount)))}`,sum(umw.map(i=>i.tax)),sum(umw.map(i=>i.svA)),sum(umw.map(i=>i.net)),''):'');
+  const tB=sum(bez.map(i=>i.amount)),tT=sum(it.map(i=>i.tax)),tS=sum(it.map(i=>i.svA)),tN=sum(it.map(i=>i.net));
+  const ok=Math.abs(tN-(s.netto||0))<1;
+  const GR=[['Jobrad',/jobrad|leasing|fahrrad|bike/i],['Betriebsrente (bAV)',/\bbav\b|betriebl|pensionsk|direktvers|altersvers/i],['Kantine',/kantine/i],['Vermögenswirksame Leistungen',/\bvwl\b|vermögensw|avwl/i]];
+  const used=new Set();const grp=[];
+  for(const[gname,re]of GR){
+    const gi=it.filter(i=>re.test(i.name)&&i.kind!=='info');
+    const hasSach=gi.some(i=>/sachbez/i.test(i.name));
+    const ga=(s.after||[]).filter((a,k)=>{if(used.has(k))return false;if(re.test(a.name)||(hasSach&&/sachbez/i.test(a.name))){used.add(k);return true}return false});
+    if(!ga.length&&!gi.some(i=>i.kind==='umw'))continue;
+    const save=sum(gi.filter(i=>i.kind==='umw').map(i=>i.net));
+    const vg=gi.filter(i=>i.kind!=='umw');const vort=sum(vg.map(i=>i.net));
+    const cut=sum(ga.map(a=>a.amount));
+    const tot=save+vort+cut;
+    const parts=[];
+    if(cut)parts.push(`${cut<0?'vom Netto abgezogen':'zum Netto dazu'} ${E(Math.abs(cut))}`);
+    if(save)parts.push(`Steuer und SV gespart ${E(save)}`);
+    if(vg.length)parts.push(`${esc(vg.map(i=>i.name).join(', '))} netto ${vort>=0?'+':'−'}${E(Math.abs(vort))}`);
+    grp.push(`<div class="note"><b>${gname}:</b> ${tot<0?'kostet dich netto':'bringt dir netto'} <b>${E(Math.abs(tot))}</b>${parts.length?' – '+parts.join(', '):''}.${/Betriebs/.test(gname)&&cut<0&&save>0?` Von ${E(-cut)} Beitrag zahlst du selbst nur ${E(-tot)} – der Rest ist gesparte Steuer und Sozialversicherung.`:''}</div>`);
+  }
   const y=s.year;const mNo=Number(anaMonth.slice(5));
   $('ana').innerHTML=`<p class="lead2">Von <b>${E(B)}</b> brutto bleiben <b>${E(s.netto)}</b> netto, ausgezahlt werden <b>${E(s.auszahlung)}</b>.</p>
   <div>${rows.join('')}</div>
   <div class="chips">${chips.map(([l,v,d])=>`<div class="chip"><span class="l">${l}</span><span class="num">${v}</span><span class="l">${d}</span></div>`).join('')}</div>
   ${notes.map(n=>`<div class="note">${n}</div>`).join('')}
-  <div class="cols"><div><h2>Lohnarten</h2><table><thead><tr><th>Bezeichnung</th><th>Betrag</th>${pv?'<th>zum Vormonat</th>':''}</tr></thead><tbody>${itemRows}</tbody></table>
-  ${gone.length?`<p class="hint" style="margin-top:8px">Entfallen gegenüber ${esc(labLong(pv.month))}: ${esc(gone.join(', '))}</p>`:''}</div>
-  <div>${(s.after||[]).length?`<h2>Abzüge nach Netto</h2><table><tbody>${s.after.map(a=>`<tr><td class="nm">${esc(a.name)}</td><td class="${a.amount<0?'dn':'up'}">${a.amount<0?'−':'+'}${E(Math.abs(a.amount))}</td></tr>`).join('')}</tbody></table>`:''}
-  ${y?`<h2 style="margin-top:24px">Jahr ${anaMonth.slice(0,4)} bis ${MON[mNo-1]}</h2><table><tbody>
+  <h2 style="margin-top:28px">Alle Positionen: Brutto → Netto</h2>
+  <p class="hint" style="margin-top:-6px">Lohnsteuer und Sozialversicherung sind anteilig auf die Positionen verteilt – laufende Bezüge mit dem laufenden Satz, Sonderzahlungen mit ihrem eigenen. ${ok?'Die Summe ergibt genau dein Netto.':'Rechnerische Verteilung, kleine Abweichungen möglich.'}</p>
+  <div class="poslist">${posHTML}
+  <div class="pos tot"><div class="pt"><span class="pn">Netto</span><b>${E(tN)}</b></div><div class="pd">Brutto ${E(tB)} · Steuer −${E(tT)} · SV −${E(tS)}</div></div></div>
+  ${info.length?`<p class="hint">Nur zur Info, ohne Auswirkung aufs Netto: ${esc(info.map(i=>i.name+' '+eur.format(i.amount)).join(', '))}</p>`:''}
+  ${gone.length?`<p class="hint">Entfallen gegenüber ${esc(labLong(pv.month))}: ${esc(gone.join(', '))}</p>`:''}
+  ${(s.after||[]).length||s.uebertrag?`<h3>Vom Netto zur Auszahlung</h3><div class="poslist">
+   <div class="pos"><div class="pt"><span class="pn">Netto</span><b>${E(s.netto)}</b></div></div>
+   ${(s.after||[]).map(a=>`<div class="pos"><div class="pt"><span class="pn">${esc(a.name)}</span><b class="${a.amount<0?'dn':'up'}">${a.amount<0?'−':'+'}${E(Math.abs(a.amount))}</b></div></div>`).join('')}
+   ${s.uebertrag?`<div class="pos"><div class="pt"><span class="pn">Nachzahlung aus Rückrechnung</span><b class="up">+${E(s.uebertrag)}</b></div></div>`:''}
+   <div class="pos tot"><div class="pt"><span class="pn">Auszahlung</span><b>${E(s.auszahlung)}</b></div></div></div>`:''}
+  ${grp.length?`<h3>Was dich Extras netto kosten</h3>${grp.join('')}`:''}
+  <div>
+  ${y?`<h3>Jahr ${anaMonth.slice(0,4)} bis ${MON[mNo-1]}</h3><table><tbody>
    <tr><td>Gesamtbrutto</td><td>${E(y.brutto)}</td></tr><tr><td>Ø Brutto je Monat</td><td>${E(y.brutto/mNo)}</td></tr>
    <tr><td>Lohnsteuer</td><td>${E(y.lohnsteuer)}</td></tr><tr><td>Sozialversicherung</td><td>${E(y.sv)}</td></tr>
    <tr><td>Abgabenquote</td><td>${P(y.brutto?((y.lohnsteuer||0)+(y.sv||0))/y.brutto:0)}</td></tr></tbody></table>`:''}
-  ${s.info?`<p class="hint" style="margin-top:12px">${esc([s.info.stkl&&'Steuerklasse '+s.info.stkl,s.info.kk&&s.info.kk+(s.info.kkZusatz!=null?' ('+String(s.info.kkZusatz).replace('.',',')+' % Zusatzbeitrag)':''),s.info.tarif&&'Tarif '+s.info.tarif].filter(Boolean).join(' · '))}</p>`:''}</div></div>`;
+  ${s.info?`<p class="hint" style="margin-top:12px">${esc([s.info.stkl&&'Steuerklasse '+s.info.stkl,s.info.kk&&s.info.kk+(s.info.kkZusatz!=null?' ('+String(s.info.kkZusatz).replace('.',',')+' % Zusatzbeitrag)':''),s.info.tarif&&'Tarif '+s.info.tarif].filter(Boolean).join(' · '))}</p>`:''}</div>`;
 }
 
 
