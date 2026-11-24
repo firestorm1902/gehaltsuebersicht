@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Gehaltsverlauf</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0b5d63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Gehalt">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Libre+Caslon+Text:wght@400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+/* VOICE: ruhig, sachlich, wie ein Monatsbericht der Bundesbank
+   IDEA: ein persönliches Statistik-Bulletin – Kennzahlen, eine große Kurve, eine Tabelle
+   PICTURE: großer Linienverlauf mit Fläche und gleitendem 12-Monats-Schnitt
+   COLOUR and TYPE: Weiß, Tinte #14161a, Petrol #0b5d63; Libre Caslon für Titel/Zahlen, Inter für Text
+   LAYOUT: Titel + Kennzahlen oben, Chart volle Breite, darunter Eingabe | Jahre, dann Monatsliste */
+:root{color-scheme:light dark;--bg:light-dark(#ffffff,#0d1416);--ink:light-dark(#14161a,#e6eceb);--mut:light-dark(#5d646b,#93a1a3);--rule:light-dark(#e3e6e8,#22302f);--acc:light-dark(#0b5d63,#4fb3ad);--soft:light-dark(#e8f1f1,#12292a);--neg:light-dark(#a3372b,#e98b7f);--card:light-dark(#f6f8f8,#111c1e)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}[hidden]{display:none!important}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Inter,system-ui,sans-serif;overflow-x:clip;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
+footer{max-width:1240px;margin:0 auto;padding:0 max(5vw,16px) 40px;font-size:13px;color:var(--mut)}
+.ver{display:inline-block;background:var(--soft);color:var(--acc);border-radius:99px;padding:2px 10px;font-weight:600}
+.log{list-style:none;padding:0;margin:8px 0 0}.log li{padding:8px 0;border-bottom:1px solid var(--rule)}.log b{color:var(--ink)}
+.upd{position:fixed;left:50%;top:calc(12px + env(safe-area-inset-top));transform:translateX(-50%);background:var(--acc);color:#fff;padding:8px 8px 8px 16px;border-radius:10px;display:none;align-items:center;gap:12px;font-size:14px;z-index:6}
+.upd button{min-height:36px;background:#fff;color:var(--acc);border-color:#fff}
+#gate{min-height:100vh;display:grid;place-items:center;padding:24px max(5vw,16px)}
+#gate .box{width:100%;max-width:380px;display:grid;gap:14px}
+#gate .lockic{width:64px;height:64px;border-radius:18px;background:var(--acc);display:grid;place-items:center}
+#gate .err{color:var(--neg);font-size:14px;min-height:1.3em;margin:0}
+#gate button{width:100%}
+.big{min-height:56px;font-size:17px}
+.or{display:flex;align-items:center;gap:10px;color:var(--mut);font-size:13px}.or::before,.or::after{content:"";flex:1;border-top:1px solid var(--rule)}
+.pin{letter-spacing:.3em;font-size:20px;text-align:center}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.sec{display:grid;gap:10px;margin-top:10px;max-width:420px}
+button.danger{border-color:var(--neg);color:var(--neg);background:transparent}
+.up-box{margin-top:16px;display:grid;gap:10px}
+.prev{background:var(--card);border-radius:10px;padding:16px;display:grid;gap:10px}
+.prev .it{border-bottom:1px solid var(--rule);padding-bottom:8px;font-size:14px}
+.prev .it b{font-size:16px}
+.choice{display:grid;gap:6px}.choice label{display:flex;gap:10px;align-items:center;color:var(--ink);font-size:15px;min-height:40px}
+.choice input{width:20px;height:20px;min-height:0;accent-color:var(--acc)}
+select{font:16px Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--rule);border-radius:8px;padding:8px 12px;min-height:44px}
+.ana-h{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.lead2{font-size:clamp(19px,2.4vw,23px);line-height:1.35;margin:6px 0 20px;max-width:46em}
+.wf{display:grid;grid-template-columns:9.5em minmax(0,1fr) 7.5em;gap:10px;align-items:center;padding:5px 0;font-size:14px}
+.wf .tr{position:relative;height:18px}
+.wf .tr span{position:absolute;top:0;bottom:0;border-radius:3px;min-width:2px}
+.wf .v{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.wf.tot{font-weight:600;border-top:1px solid var(--rule);padding-top:8px}
+.chips{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:18px 0}
+.chip{background:var(--card);border-radius:10px;padding:12px}.chip .num{font-size:24px;display:block;line-height:1.2}.chip .l{font-size:13px;color:var(--mut)}
+.note{background:var(--soft);border-radius:10px;padding:14px 16px;margin:10px 0}
+.note b{color:var(--acc)}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(20px,4vw,48px);margin-top:20px}
+.tag{font-size:12px;border-radius:99px;padding:1px 8px;background:var(--soft);color:var(--acc);margin-left:6px;white-space:nowrap}
+td.nm{white-space:normal}
+@media(max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}.chips{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.wf{grid-template-columns:7.2em minmax(0,1fr) 6.6em;font-size:13px}}
+.band{padding:clamp(22px,4vw,48px) max(5vw,16px);max-width:1240px;margin:0 auto}
+h1,h2,.num{font-family:"Libre Caslon Text",Georgia,serif;font-weight:400}
+h1{font-size:clamp(30px,5vw,46px);line-height:1.05;margin:0 0 6px;text-wrap:balance}
+h2{font-size:24px;margin:0 0 14px}
+.sub{color:var(--mut);margin:0}
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:0;margin-top:24px;border-top:1px solid var(--ink)}
+.kpi{padding:12px 16px 4px 0;border-right:1px solid var(--rule);margin-right:16px}
+.kpi:last-child{border:0}
+.kpi .l{font-size:13px;color:var(--mut)}
+.kpi .num{font-size:clamp(22px,3vw,30px);white-space:nowrap;display:block;line-height:1.2}
+.kpi .d{font-size:13px;white-space:nowrap}
+.up{color:var(--acc)}.dn{color:var(--neg)}
+.fig{position:relative;min-height:360px;margin-top:8px}
+.fig>svg{position:absolute;inset:0;width:100%;height:100%;touch-action:pan-y}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--mut);margin-top:22px}
+.legend i{display:inline-block;width:18px;height:0;border-top:3px solid var(--acc);vertical-align:middle;margin-right:6px}
+.legend i.avg{border-top:2px dashed var(--ink)}
+.tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:13px;padding:6px 10px;border-radius:6px;white-space:nowrap;transform:translate(-50%,-115%);opacity:0;transition:opacity .12s}
+.tip b{font-weight:600}
+.grid2{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:clamp(24px,4vw,56px);border-top:1px solid var(--rule)}
+form{display:grid;gap:14px;background:var(--card);padding:20px;border-radius:10px}
+label{font-size:14px;color:var(--mut);display:grid;gap:6px}
+input,textarea{font:16px Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg);border:1px solid var(--rule);border-radius:8px;padding:10px 12px;min-height:44px;width:100%}
+textarea{min-height:90px;font-size:13px}
+input:focus-visible,textarea:focus-visible,button:focus-visible{outline:2px solid var(--acc);outline-offset:2px}
+button{font:500 15px Inter,system-ui,sans-serif;min-height:44px;padding:0 16px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:#fff;cursor:pointer}
+button.ghost{background:transparent;color:var(--acc)}
+button.mini{min-height:36px;min-width:44px;padding:0 10px;font-size:13px;background:transparent;color:var(--mut);border-color:var(--rule)}
+.row{display:flex;gap:10px;flex-wrap:wrap}
+.hint{font-size:13px;color:var(--mut);min-height:1.2em;margin:0}
+.yr{display:grid;grid-template-columns:4.2em minmax(0,1fr) auto;gap:10px;align-items:center;padding:8px 0;border-bottom:1px solid var(--rule)}
+.yr .bar{height:14px;background:var(--soft);border-radius:3px;overflow:hidden}
+.yr .bar span{display:block;height:100%;background:var(--acc)}
+.yr .v{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.yr small{color:var(--mut);display:block;font-size:13px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+th{font-weight:500;font-size:13px;color:var(--mut);text-align:right;padding:8px;border-bottom:1px solid var(--ink)}
+th:first-child,td:first-child{text-align:left}
+td{padding:6px 8px;border-bottom:1px solid var(--rule);text-align:right;white-space:nowrap}
+td.act{width:1%}
+.empty{padding:28px;text-align:center;color:var(--mut);background:var(--card);border-radius:10px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:8px 8px 8px 16px;border-radius:10px;display:none;align-items:center;gap:12px;font-size:14px;z-index:5}
+.toast button{min-height:36px;background:transparent;border-color:var(--bg);color:var(--bg)}
+details{margin-top:18px}summary{cursor:pointer;color:var(--acc);min-height:44px;display:flex;align-items:center}
+.status{font-size:13px;color:var(--mut)}
+@media(max-width:860px){.grid2{grid-template-columns:minmax(0,1fr)}.kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.kpi:nth-child(2){border:0}.kpi:nth-child(n+3){border-top:1px solid var(--rule)}}
+@media(max-width:600px){.fig{min-height:280px}table{font-size:14px}td,th{padding:6px 4px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@keyframes draw{from{stroke-dashoffset:var(--len)}to{stroke-dashoffset:0}}
+</style>
+</head>
+<body>
+<div id="gate"><div class="box" id="gbox"></div></div>
+<main id="app" hidden>
+<section class="band">
+  <div class="top"><h1 id="title">Mein Gehaltsverlauf</h1><button type="button" class="mini" id="lockBtn" aria-label="App sperren">Sperren</button></div>
+  <p class="sub" id="lead">Netto inklusive Sonderzahlungen, Monat für Monat.</p>
+  <div class="kpis" id="kpis"></div>
+  <div class="legend"><span><i></i>Monatliches Netto</span><span><i class="avg"></i>Ø der letzten 12 Monate</span></div>
+  <div class="fig" id="fig"><svg id="chart" role="img" aria-label="Gehaltsverlauf als Liniendiagramm"></svg><div class="tip" id="tip"></div></div>
+</section>
+
+<section class="band grid2">
+  <div>
+    <h2>Eintrag</h2>
+    <form id="form" autocomplete="off">
+      <label>Monat<input type="month" id="fMonth" required></label>
+      <label>Netto in €<input id="fVal" inputmode="decimal" placeholder="z. B. 3366,34" required></label>
+      <p class="hint" id="fHint"></p>
+      <div class="row"><button type="submit" id="fBtn">Speichern</button><button type="button" class="ghost" id="fReset">Leeren</button></div>
+    </form>
+    <div class="up-box"><button type="button" class="ghost" id="pdfBtn">Abrechnung (PDF) hochladen</button><input type="file" id="pdfIn" accept="application/pdf,.pdf" multiple hidden>
+      <div id="pdfPrev"></div></div>
+    <p class="status" id="status">Lade Daten …</p>
+    <div id="seedBox"></div>
+    <details>
+      <summary>Daten sichern / importieren</summary>
+      <p class="hint">Daten liegen verschlüsselt nur auf diesem Gerät. Ein Backup ist <b>unverschlüsselt</b> – sicher aufbewahren.</p>
+      <div class="row" style="margin:8px 0"><button type="button" class="ghost" id="fileBtn">Backup-Datei</button><button type="button" class="ghost" id="openBtn">Datei laden</button><input type="file" id="fileIn" accept=".json,application/json" hidden></div>
+      <div class="row" style="margin:8px 0"><button type="button" class="ghost" id="copyBtn">JSON kopieren</button><button type="button" class="ghost" id="impBtn">Text importieren</button></div>
+      <textarea id="io" placeholder='{"2026-10":3366.34}'></textarea>
+    </details>
+  </div>
+  <div>
+    <h2>Jahre</h2>
+    <div id="years"></div>
+  </div>
+</section>
+
+<section class="band" id="anaBand" style="border-top:1px solid var(--rule)" hidden>
+  <div class="ana-h"><h2 style="margin:0">Abrechnung analysiert</h2><select id="anaSel" aria-label="Abrechnungsmonat"></select></div>
+  <div id="ana"></div>
+</section>
+
+<section class="band" style="border-top:1px solid var(--rule)">
+  <h2>Alle Monate</h2>
+  <div id="list"></div>
+</section>
+
+<footer>
+  <details>
+    <summary>Gehaltsverlauf <span class="ver" id="verTag" style="margin-left:8px"></span></summary>
+    <ul class="log" id="log"></ul>
+  </details>
+  <details>
+    <summary>Sicherheit</summary>
+    <p class="hint" id="secInfo"></p>
+    <div class="sec">
+      <label>Neue App-PIN (mind. 6 Ziffern)<input type="password" inputmode="numeric" autocomplete="new-password" id="np1" class="pin"></label>
+      <label>Neue PIN wiederholen<input type="password" inputmode="numeric" autocomplete="new-password" id="np2" class="pin"></label>
+      <button type="button" class="ghost" id="pinBtn">PIN ändern</button>
+      <p class="hint" id="secMsg"></p>
+      <button type="button" class="danger" id="wipeBtn">Alle Daten löschen</button>
+    </div>
+  </details>
+</footer>
+</main>
+<div class="upd" id="upd"><span>Neue Version verfügbar</span><button type="button" id="updBtn">Neu laden</button></div>
+<div class="toast" id="toast"><span id="toastMsg"></span><button type="button" id="undoBtn">Rückgängig</button></div>
+
+<script src="slip.js"></script>
+<script>
+{
+const $=id=>document.getElementById(id);
+const MON=['Jan','Feb','Mrz','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez'];
+const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
+const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
+const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
+const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
+const VERSION='1.4.0';
+const CHANGELOG=[
+  ['1.4.0','24.11.2026','Fingerabdruck-Login entfernt. Entsperren nur noch per App-PIN, Daten bleiben verschlüsselt.'],
+  ['1.3.2','24.11.2026','Eingebaute Excel-Startwerte entfernt – Daten kommen nur noch aus hochgeladenen Abrechnungen oder eigenen Einträgen.'],
+  ['1.3.1','24.11.2026','Fingerabdruck: Passkey wird direkt im Google Passwortmanager des Handys angelegt statt Auswahl externer Sicherheitsschlüssel.'],
+  ['1.3.0','24.11.2026','Verdienstabrechnung als PDF hochladen: Brutto-Netto-Aufschlüsselung, Sonderzahlungen, Rückrechnungen, Lohnarten mit Vormonatsvergleich und Jahreswerte. Auswertung komplett auf dem Gerät.'],
+  ['1.2.0','24.11.2026','Login per Fingerabdruck oder App-PIN. Daten werden verschlüsselt gespeichert (AES-256). Automatische Sperre nach 1 Minute im Hintergrund.'],
+  ['1.1.0','24.11.2026','Installierbar als App (PWA), funktioniert offline. Versionsanzeige mit Änderungsverlauf. Backup als Datei speichern und laden.'],
+  ['1.0.0','24.11.2026','Erste Version: Monate eintragen, Verlauf mit 12-Monats-Schnitt, Kennzahlen, Jahresübersicht, Import der Excel-Werte.']
+];
+let data={};let slips={};let opts={field:'auszahlung'};let anaMonth=null;let lastDel=null;let toastT;
+
+const idx=k=>{const[y,m]=k.split('-').map(Number);return y*12+m-1};
+const key=i=>Math.floor(i/12)+'-'+String(i%12+1).padStart(2,'0');
+const lab=k=>{const i=idx(k);return MON[i%12]+' '+String(Math.floor(i/12)).slice(2)};
+const labLong=k=>{const i=idx(k);return MON[i%12]+' '+Math.floor(i/12)};
+const parse=s=>{s=String(s).replace(/[€\s]/g,'');if(s.includes(','))s=s.replace(/\./g,'').replace(',','.');const n=Number(s);return isFinite(n)&&n>=0?Math.round(n*100)/100:NaN};
+const sorted=()=>Object.keys(data).filter(k=>KEY.test(k)).sort();
+const dl=(cur,prev)=>{if(!prev)return'';const r=cur/prev-1;return`<span class="d ${r>=0?'up':'dn'}">${pct.format(r)}</span>`};
+
+/* ---------- Tresor: AES-GCM-Datenschlüssel, verpackt per PIN (PBKDF2) ---------- */
+const VKEY='gehalt.vault',ITER=600000;
+const te=new TextEncoder(),td=new TextDecoder();
+const rnd=n=>crypto.getRandomValues(new Uint8Array(n));
+const b64=u=>{let s='';for(const c of new Uint8Array(u))s+=String.fromCharCode(c);return btoa(s)};
+const unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+let vault=null,dekRaw=null,dek=null,saveQ=Promise.resolve();
+const aes=raw=>crypto.subtle.importKey('raw',raw,'AES-GCM',false,['encrypt','decrypt']);
+async function seal(k,bytes){const iv=rnd(12);return{iv:b64(iv),ct:b64(await crypto.subtle.encrypt({name:'AES-GCM',iv},k,bytes))}}
+async function unseal(k,o){return new Uint8Array(await crypto.subtle.decrypt({name:'AES-GCM',iv:unb64(o.iv)},k,unb64(o.ct)))}
+async function pinKey(pin,salt,iter){const b=await crypto.subtle.importKey('raw',te.encode(pin),'PBKDF2',false,['deriveKey']);return crypto.subtle.deriveKey({name:'PBKDF2',salt,iterations:iter,hash:'SHA-256'},b,{name:'AES-GCM',length:256},false,['encrypt','decrypt'])}
+function vLoad(){try{const v=JSON.parse(localStorage.getItem(VKEY)||'null');return v&&v.pin&&v.data?v:null}catch(e){return null}}
+function vStore(){localStorage.setItem(VKEY,JSON.stringify(vault))}
+async function wrapPin(pin){const salt=rnd(16);const k=await pinKey(pin,salt,ITER);vault.pin={salt:b64(salt),iter:ITER,...await seal(k,dekRaw)}}
+async function useDek(raw){if(vault.bio){delete vault.bio;try{vStore()}catch(e){}}dekRaw=raw;dek=await aes(raw);const o=JSON.parse(td.decode(await unseal(dek,vault.data)))||{};if(o.v===2){data=o.m||{};slips=o.s||{};opts=Object.assign({field:'auszahlung'},o.o||{})}else{data=o;slips={}}}
+function lsSave(){
+  if(!dek)return;const snap=JSON.stringify({v:2,m:data,s:slips,o:opts});
+  saveQ=saveQ.then(async()=>{vault.data=await seal(dek,te.encode(snap));vStore()}).catch(()=>toast('Speichern fehlgeschlagen'));
+}
+
+async function put(k,v){data[k]=v;lsSave();render()}
+async function del(k){delete data[k];lsSave();render()}
+
+function kpis(){
+  const ks=sorted();const el=$('kpis');
+  if(!ks.length){el.innerHTML='';$('title').textContent='Mein Gehaltsverlauf';return}
+  const last=ks[ks.length-1],li=idx(last);
+  const prev=data[ks[ks.length-2]];
+  const win=(a,b)=>ks.filter(k=>idx(k)>a&&idx(k)<=b).map(k=>data[k]);
+  const w1=win(li-12,li),w0=win(li-24,li-12);
+  const avg=a=>a.reduce((s,x)=>s+x,0)/a.length;
+  const a1=avg(w1),a0=w0.length?avg(w0):0;
+  const total=ks.reduce((s,k)=>s+data[k],0);
+  const yr=Math.floor(li/12);const ytd=ks.filter(k=>k.startsWith(yr+'-')).reduce((s,k)=>s+data[k],0);
+  const ytdPrev=ks.filter(k=>k.startsWith((yr-1)+'-')&&idx(k)%12<=li%12).reduce((s,k)=>s+data[k],0);
+  $('title').textContent=`Ø ${eur0.format(a1)} netto im Monat`;
+  $('lead').textContent=`Durchschnitt der letzten 12 Monate bis ${labLong(last)}`+(a0?`, ${pct.format(a1/a0-1)} gegenüber dem Jahr davor.`:'.');
+  el.innerHTML=[
+    ['Letzter Monat · '+lab(last),eur.format(data[last]),dl(data[last],prev)+(prev?' <span class="d" style="color:var(--mut)">zum Vormonat</span>':'')],
+    ['Ø 12 Monate',eur.format(a1),a0?dl(a1,a0)+' <span class="d" style="color:var(--mut)">zum Vorjahr</span>':''],
+    ['Summe '+yr+' bis '+MON[li%12],eur0.format(ytd),ytdPrev?dl(ytd,ytdPrev)+' <span class="d" style="color:var(--mut)">zum Vorjahr</span>':''],
+    ['Gesamt · '+ks.length+' Monate',eur0.format(total),'']
+  ].map(([l,v,d])=>`<div class="kpi"><span class="l">${l}</span><span class="num">${v}</span>${d||'<span class="d">&nbsp;</span>'}</div>`).join('');
+}
+
+let pts=[];
+function draw(){
+  const s=$('chart');const W=s.clientWidth,H=s.clientHeight;const ks=sorted();
+  if(!ks.length||!W){s.innerHTML=`<text x="${W/2}" y="${H/2}" text-anchor="middle" fill="currentColor" opacity=".5" font-size="14">Noch keine Einträge</text>`;pts=[];return}
+  const narrow=W<520;const ml=narrow?38:56,mr=12,mt=14,mb=28;
+  const i0=idx(ks[0]),i1=Math.max(idx(ks[ks.length-1]),i0+1);
+  const max=Math.max(...ks.map(k=>data[k]));const step=max>8000?2000:1000;const top=Math.ceil(max*1.08/step)*step;
+  const x=i=>ml+(i-i0)/(i1-i0)*(W-ml-mr),y=v=>mt+(1-v/top)*(H-mt-mb);
+  let g='';
+  for(let v=0;v<=top;v+=step){g+=`<line x1="${ml}" x2="${W-mr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--rule)"/><text x="${ml-8}" y="${y(v)+4}" text-anchor="end" font-size="12" fill="var(--mut)">${narrow?(v/1000)+'k':v.toLocaleString('de-DE')}</text>`}
+  for(let i=i0;i<=i1;i++){if(i%12===0){g+=`<line x1="${x(i)}" x2="${x(i)}" y1="${mt}" y2="${H-mb}" stroke="var(--rule)"/><text x="${x(i)+4}" y="${H-8}" font-size="12" fill="var(--mut)">${Math.floor(i/12)}</text>`}}
+  pts=ks.map(k=>({k,v:data[k],x:x(idx(k)),y:y(data[k])}));
+  const line=pts.map((p,j)=>(j?'L':'M')+p.x.toFixed(1)+','+p.y.toFixed(1)).join('');
+  const area=line+`L${pts[pts.length-1].x},${y(0)}L${pts[0].x},${y(0)}Z`;
+  const av=[];for(const p of pts){const i=idx(p.k);if(i-i0<11)continue;const w=ks.filter(k=>idx(k)>i-12&&idx(k)<=i);if(w.length>=10)av.push([p.x,y(w.reduce((s,k)=>s+data[k],0)/w.length)])}
+  const avl=av.map((p,j)=>(j?'L':'M')+p[0].toFixed(1)+','+p[1].toFixed(1)).join('');
+  s.innerHTML=g+`<defs><linearGradient id="ga" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="var(--acc)" stop-opacity=".22"/><stop offset="1" stop-color="var(--acc)" stop-opacity="0"/></linearGradient></defs>
+  <path d="${area}" fill="url(#ga)"/>
+  ${avl?`<path d="${avl}" fill="none" stroke="var(--ink)" stroke-width="1.5" stroke-dasharray="5 4"/>`:''}
+  <path id="ln" d="${line}" fill="none" stroke="var(--acc)" stroke-width="2.5" stroke-linejoin="round"/>
+  ${narrow?'':pts.map(p=>`<circle cx="${p.x}" cy="${p.y}" r="2.5" fill="var(--acc)"/>`).join('')}
+  <circle id="hd" r="6" fill="var(--bg)" stroke="var(--acc)" stroke-width="2.5" opacity="0"/>`;
+}
+function hover(e){
+  if(!pts.length)return;const r=$('chart').getBoundingClientRect();const mx=e.clientX-r.left;
+  let b=pts[0];for(const p of pts)if(Math.abs(p.x-mx)<Math.abs(b.x-mx))b=p;
+  const t=$('tip');t.innerHTML='';const s1=document.createElement('span');s1.textContent=labLong(b.k)+'  ';const s2=document.createElement('b');s2.textContent=eur.format(b.v);t.append(s1,s2);
+  t.style.left=Math.min(Math.max(b.x,70),r.width-70)+'px';t.style.top=b.y+'px';t.style.opacity=1;
+  const h=$('hd');if(h){h.setAttribute('cx',b.x);h.setAttribute('cy',b.y);h.setAttribute('opacity',1)}
+}
+function unhover(){$('tip').style.opacity=0;const h=$('hd');if(h)h.setAttribute('opacity',0)}
+
+function years(){
+  const ks=sorted();const by={};for(const k of ks){const y=k.slice(0,4);(by[y]=by[y]||[]).push(data[k])}
+  const ys=Object.keys(by).sort().reverse();const mx=Math.max(...ys.map(y=>by[y].reduce((a,b)=>a+b,0)),1);
+  $('years').innerHTML=ys.length?ys.map(y=>{const a=by[y],s=a.reduce((p,c)=>p+c,0);return`<div class="yr"><span class="num" style="font-size:20px">${y}</span><div><div class="bar"><span style="width:${(s/mx*100).toFixed(1)}%"></span></div><small>${a.length} ${a.length===1?'Monat':'Monate'} · Ø ${eur0.format(s/a.length)}</small></div><span class="v">${eur.format(s)}</span></div>`}).join(''):'<div class="empty">Noch keine Jahre.</div>';
+}
+function list(){
+  const ks=sorted().reverse();
+  if(!ks.length){$('list').innerHTML='<div class="empty">Trage deinen ersten Monat oben ein.</div>';return}
+  $('list').innerHTML=`<table><thead><tr><th>Monat</th><th>Netto</th><th>zum Vormonat</th><th></th></tr></thead><tbody>${ks.map((k,j)=>{const p=ks[j+1];const v=data[k];const d=p?v-data[p]:null;return`<tr><td>${labLong(k)}</td><td>${eur.format(v)}</td><td class="${d==null?'':d>=0?'up':'dn'}">${d==null?'–':(d>=0?'+':'')+eur.format(d)}</td><td class="act"><div class="row" style="gap:6px;flex-wrap:nowrap">${slips[k]?`<button class="mini" data-a="${k}" aria-label="Abrechnung ${labLong(k)} anzeigen">PDF</button>`:''}<button class="mini" data-e="${k}" aria-label="${labLong(k)} bearbeiten">Ändern</button><button class="mini" data-d="${k}" aria-label="${labLong(k)} löschen">✕</button></div></td></tr>`}).join('')}</tbody></table>`;
+}
+function seedBox(){
+  $('seedBox').innerHTML=sorted().length?'':`<div class="empty" style="margin-top:16px;text-align:left"><p style="margin:0">Noch keine Daten. Lade deine Verdienstabrechnungen als PDF hoch – du kannst mehrere auf einmal auswählen.</p></div>`;
+}
+function hint(){
+  const k=$('fMonth').value;const ex=KEY.test(k)&&data[k]!=null;
+  $('fBtn').textContent=ex?'Aktualisieren':'Speichern';
+  $('fHint').textContent=ex?`${labLong(k)} ist schon eingetragen (${eur.format(data[k])}) und wird überschrieben.`:'';
+}
+function nextMonth(){const ks=sorted();if(!ks.length){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')}return key(idx(ks[ks.length-1])+1)}
+function render(){kpis();draw();years();list();seedBox();hint();ana()}
+function toast(msg,undo){$('toastMsg').textContent=msg;$('undoBtn').style.display=undo?'':'none';$('toast').style.display='flex';clearTimeout(toastT);toastT=setTimeout(()=>{$('toast').style.display='none'},5000)}
+const err=()=>toast('Speichern fehlgeschlagen');
+
+$('form').addEventListener('submit',async e=>{
+  e.preventDefault();const k=$('fMonth').value;const v=parse($('fVal').value);
+  if(!KEY.test(k)){$('fHint').textContent='Bitte einen Monat wählen.';return}
+  if(isNaN(v)){$('fHint').textContent='Bitte einen gültigen Betrag eingeben, z. B. 3366,34.';return}
+  try{await put(k,v);toast(labLong(k)+' gespeichert');$('fVal').value='';$('fMonth').value=nextMonth();hint();$('fVal').focus()}catch(x){err(x)}
+});
+$('fReset').addEventListener('click',()=>{$('fVal').value='';$('fMonth').value=nextMonth();hint()});
+$('fMonth').addEventListener('input',hint);
+$('list').addEventListener('click',async e=>{
+  const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.e){const k=b.dataset.e;$('fMonth').value=k;$('fVal').value=String(data[k]).replace('.',',');hint();$('form').scrollIntoView({behavior:'smooth',block:'center'});$('fVal').focus({preventScroll:true})}
+  if(b.dataset.a){anaMonth=b.dataset.a;ana();$('anaBand').scrollIntoView({behavior:'smooth'})}
+  if(b.dataset.d){const k=b.dataset.d;lastDel={k,v:data[k]};try{await del(k);toast(labLong(k)+' gelöscht',true)}catch(x){err(x)}}
+});
+$('undoBtn').addEventListener('click',async()=>{if(!lastDel)return;const d=lastDel;lastDel=null;$('toast').style.display='none';try{await put(d.k,d.v)}catch(x){err(x)}});
+const backup=()=>{const m={};for(const k of sorted())m[k]=data[k];return{v:2,months:m,slips}};
+$('copyBtn').addEventListener('click',async()=>{const t=JSON.stringify(backup());$('io').value=t;try{await navigator.clipboard.writeText(t);toast('JSON kopiert')}catch(x){$('io').select();toast('Text markiert – bitte manuell kopieren')}});
+function importText(t){
+  let o;try{o=JSON.parse(t)}catch(x){toast('Kein gültiges JSON');return}
+  let ns=0;if(o&&o.v===2){for(const[k,v]of Object.entries(o.slips||{}))if(KEY.test(k)&&v&&typeof v==='object'){slips[k]=v;ns++}o=o.months}
+  const ent=Object.entries(o||{}).filter(([k,v])=>KEY.test(k)&&typeof v==='number'&&v>=0);
+  if(!ent.length&&!ns){toast('Keine gültigen Einträge gefunden');return}
+  for(const[k,v]of ent)data[k]=v;lsSave();render();toast(ent.length+' Monate'+(ns?' und '+ns+' Abrechnungen':'')+' importiert');
+}
+$('impBtn').addEventListener('click',()=>importText($('io').value));
+$('fileBtn').addEventListener('click',()=>{
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(backup())],{type:'application/json'}));
+  a.download='gehalt-backup-'+new Date().toISOString().slice(0,10)+'.json';document.body.append(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+});
+$('openBtn').addEventListener('click',()=>$('fileIn').click());
+$('fileIn').addEventListener('change',async e=>{const f=e.target.files[0];if(f)importText(await f.text());e.target.value=''});
+$('verTag').textContent='v'+VERSION;
+$('log').innerHTML=CHANGELOG.map(([v,d,t])=>`<li><b>v${v}</b> · ${d}<br>${t}</li>`).join('');
+const svg=$('chart');svg.addEventListener('pointermove',hover);svg.addEventListener('pointerdown',hover);svg.addEventListener('pointerleave',unhover);
+const ro=new ResizeObserver(draw);ro.observe($('fig'));
+
+/* ---------- PDF-Abrechnungen ---------- */
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const E=v=>esc(eur.format(v||0));
+const P=v=>new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1}).format(v||0);
+const FIELDS={auszahlung:'Auszahlung / Überweisung',netto:'Netto (vor Abzügen wie Jobrad, bAV, Kantine)',summeLfd:'Summe lfd. Monat (ohne Rückrechnung)'};
+let pending=[];
+async function loadPdfjs(){
+  if(window.pdfjsLib)return window.pdfjsLib;
+  await new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='lib/pdf.min.js';sc.onload=ok;sc.onerror=no;document.head.append(sc)});
+  window.pdfjsLib.GlobalWorkerOptions.workerSrc='lib/pdf.worker.min.js';return window.pdfjsLib;
+}
+$('pdfBtn').addEventListener('click',()=>$('pdfIn').click());
+$('pdfIn').addEventListener('change',async e=>{
+  const files=[...e.target.files];e.target.value='';if(!files.length)return;
+  $('pdfPrev').innerHTML='<p class="hint">Lese Abrechnung …</p>';
+  let lib;try{lib=await loadPdfjs()}catch(x){$('pdfPrev').innerHTML='<p class="hint">PDF-Leser konnte nicht geladen werden.</p>';return}
+  pending=[];const bad=[];
+  for(const f of files){try{const r=Slip.parseSlip?await Slip.parsePdf(lib,new Uint8Array(await f.arrayBuffer())):null;if(r&&KEY.test(r.month))pending.push(r);else bad.push(f.name)}catch(x){bad.push(f.name)}}
+  pending.sort((a,b)=>a.month<b.month?-1:1);showPending(bad);
+});
+function showPending(bad){
+  if(!pending.length){$('pdfPrev').innerHTML=`<div class="prev"><p style="margin:0">Keine Verdienstabrechnung erkannt${bad.length?' in: '+esc(bad.join(', ')):''}.</p></div>`;return}
+  $('pdfPrev').innerHTML=`<div class="prev"><b>${pending.length===1?'Abrechnung erkannt':pending.length+' Abrechnungen erkannt'}</b>
+  ${pending.map(p=>`<div class="it"><b>${esc(labLong(p.month))}</b>${data[p.month]!=null?' <span class="tag">überschreibt '+E(data[p.month])+'</span>':''}<br>Brutto ${E(p.brutto)} · Netto ${E(p.netto)} · Auszahlung ${E(p.auszahlung)}</div>`).join('')}
+  ${bad.length?`<p class="hint">Nicht erkannt: ${esc(bad.join(', '))}</p>`:''}
+  <div class="choice"><span class="hint" style="margin:0">Als Monatswert im Verlauf speichern:</span>
+  ${Object.entries(FIELDS).map(([k,t])=>`<label><input type="radio" name="fld" value="${k}" ${opts.field===k?'checked':''}>${t}</label>`).join('')}</div>
+  <div class="row"><button type="button" id="pdfOk">Übernehmen</button><button type="button" class="ghost" id="pdfNo">Verwerfen</button></div></div>`;
+  $('pdfOk').onclick=()=>{
+    const f=(document.querySelector('input[name=fld]:checked')||{}).value||'auszahlung';opts.field=f;
+    for(const p of pending){slips[p.month]=p;const v=p[f]??p.auszahlung;if(typeof v==='number')data[p.month]=Math.round(v*100)/100}
+    anaMonth=pending[pending.length-1].month;const n=pending.length;pending=[];$('pdfPrev').innerHTML='';
+    lsSave();render();$('fMonth').value=nextMonth();hint();toast(n===1?'Abrechnung übernommen':n+' Abrechnungen übernommen');
+    $('anaBand').scrollIntoView({behavior:'smooth'});
+  };
+  $('pdfNo').onclick=()=>{pending=[];$('pdfPrev').innerHTML=''};
+}
+$('anaSel').addEventListener('change',e=>{anaMonth=e.target.value;ana()});
+function wfRow(label,from,to,base,color,val,cls){
+  const l=Math.min(from,to)/base*100,w=Math.abs(to-from)/base*100;
+  return`<div class="wf ${cls||''}"><span>${label}</span><div class="tr"><span style="left:${Math.max(0,l).toFixed(2)}%;width:${Math.min(100,w).toFixed(2)}%;background:${color}"></span></div><span class="v">${val}</span></div>`;
+}
+function ana(){
+  const ms=Object.keys(slips).filter(k=>KEY.test(k)).sort();
+  $('anaBand').hidden=!ms.length;if(!ms.length){$('ana').innerHTML='';return}
+  if(!ms.includes(anaMonth))anaMonth=ms[ms.length-1];
+  $('anaSel').innerHTML=ms.slice().reverse().map(k=>`<option value="${k}" ${k===anaMonth?'selected':''}>${esc(labLong(k))}</option>`).join('');
+  const s=slips[anaMonth];const pi=ms.indexOf(anaMonth);const pv=pi>0?slips[ms[pi-1]]:null;
+  const B=s.brutto||0,sv=s.sv||{},svT=s.svTotal||0,tax=s.tax||0,afterSum=(s.after||[]).reduce((a,b)=>a+(b.amount||0),0);
+  const DED='var(--neg)',TOT='var(--acc)',PLUS='color-mix(in srgb,var(--acc) 55%,transparent)';
+  let cur=B;const rows=[wfRow('Brutto',0,B,B,TOT,E(B),'')];
+  const step=(lab,amt)=>{if(!amt)return;rows.push(wfRow(lab,cur,cur-amt,B,DED,'−'+E(amt)));cur-=amt};
+  step('Lohnsteuer',tax);step('Krankenvers.',sv.kv);step('Rentenvers.',sv.rv);step('Arbeitslosenv.',sv.av);step('Pflegevers.',sv.pv);
+  rows.push(wfRow('Netto',0,s.netto,B,TOT,E(s.netto),'tot'));cur=s.netto;
+  for(const a of s.after||[]){const to=cur+a.amount;rows.push(wfRow(esc(a.name.length>22?a.name.slice(0,21)+'…':a.name),cur,to,B,a.amount<0?DED:PLUS,(a.amount<0?'−':'+')+E(Math.abs(a.amount))));cur=to}
+  if(s.uebertrag){rows.push(wfRow('Rückrechnung',cur,cur+s.uebertrag,B,PLUS,'+'+E(s.uebertrag)));cur+=s.uebertrag}
+  rows.push(wfRow('Auszahlung',0,s.auszahlung,B,TOT,E(s.auszahlung),'tot'));
+  const q=B?(tax+svT)/B:0;
+  const chips=[['Abgabenquote',P(q),'Steuer + Sozialvers. vom Brutto'],['Netto-Quote',P(B?s.netto/B:0),'Netto vom Brutto'],['Lohnsteuer',P(B?tax/B:0),E(tax)],['Sozialvers.',P(B?svT/B:0),E(svT)]];
+  const notes=[];
+  if(s.sonstBezug){
+    const net=s.sonstBezug-(s.taxSonst||0)-(s.svEinmal||0);
+    notes.push(`<b>Sonderzahlung:</b> ${esc((s.special||[]).map(x=>x.name).join(', ')||'Sonstiger Bezug')} mit ${E(s.sonstBezug)} brutto. Darauf ${E(s.taxSonst)} Lohnsteuer (${P(s.taxSonst/s.sonstBezug)}) und ${E(s.svEinmal)} Sozialversicherung – es bleiben rechnerisch etwa <b>${E(net)}</b> netto (${P(net/s.sonstBezug)}).`);
+  }
+  for(const r of s.retros||[])notes.push(`<b>Rückrechnung ${esc(labLong(r.month))}:</b> nachträglich ${E(r.brutto)} brutto, davon ${E(r.netto)} netto ausgezahlt – ${esc((r.items||[]).map(i=>i.name).join(', ').replace(/\.+$/,''))}.`);
+  if(pv){const d=s.brutto-pv.brutto,dn=s.netto-pv.netto;notes.push(`<b>Gegenüber ${esc(labLong(pv.month))}:</b> Brutto ${d>=0?'+':'−'}${E(Math.abs(d))}, Netto ${dn>=0?'+':'−'}${E(Math.abs(dn))}, Auszahlung ${s.auszahlung-pv.auszahlung>=0?'+':'−'}${E(Math.abs(s.auszahlung-pv.auszahlung))}.`)}
+  const pm={};for(const i of pv?.items||[])pm[i.name]=(pm[i.name]||0)+i.amount;
+  const seen=new Set();
+  const itemRows=(s.items||[]).map(i=>{seen.add(i.name);const old=pm[i.name];const d=old==null?null:i.amount-old;
+    return`<tr><td class="nm">${esc(i.name)}${i.free?'<span class="tag">frei</span>':''}${pv&&old==null?'<span class="tag">neu</span>':''}</td><td>${E(i.amount)}</td>${pv?`<td class="${d==null||!d?'':d>0?'up':'dn'}">${d==null?'–':d?(d>0?'+':'−')+E(Math.abs(d)):'='}</td>`:''}</tr>`}).join('');
+  const gone=pv?Object.keys(pm).filter(n=>!seen.has(n)):[];
+  const y=s.year;const mNo=Number(anaMonth.slice(5));
+  $('ana').innerHTML=`<p class="lead2">Von <b>${E(B)}</b> brutto bleiben <b>${E(s.netto)}</b> netto, ausgezahlt werden <b>${E(s.auszahlung)}</b>.</p>
+  <div>${rows.join('')}</div>
+  <div class="chips">${chips.map(([l,v,d])=>`<div class="chip"><span class="l">${l}</span><span class="num">${v}</span><span class="l">${d}</span></div>`).join('')}</div>
+  ${notes.map(n=>`<div class="note">${n}</div>`).join('')}
+  <div class="cols"><div><h2>Lohnarten</h2><table><thead><tr><th>Bezeichnung</th><th>Betrag</th>${pv?'<th>zum Vormonat</th>':''}</tr></thead><tbody>${itemRows}</tbody></table>
+  ${gone.length?`<p class="hint" style="margin-top:8px">Entfallen gegenüber ${esc(labLong(pv.month))}: ${esc(gone.join(', '))}</p>`:''}</div>
+  <div>${(s.after||[]).length?`<h2>Abzüge nach Netto</h2><table><tbody>${s.after.map(a=>`<tr><td class="nm">${esc(a.name)}</td><td class="${a.amount<0?'dn':'up'}">${a.amount<0?'−':'+'}${E(Math.abs(a.amount))}</td></tr>`).join('')}</tbody></table>`:''}
+  ${y?`<h2 style="margin-top:24px">Jahr ${anaMonth.slice(0,4)} bis ${MON[mNo-1]}</h2><table><tbody>
+   <tr><td>Gesamtbrutto</td><td>${E(y.brutto)}</td></tr><tr><td>Ø Brutto je Monat</td><td>${E(y.brutto/mNo)}</td></tr>
+   <tr><td>Lohnsteuer</td><td>${E(y.lohnsteuer)}</td></tr><tr><td>Sozialversicherung</td><td>${E(y.sv)}</td></tr>
+   <tr><td>Abgabenquote</td><td>${P(y.brutto?((y.lohnsteuer||0)+(y.sv||0))/y.brutto:0)}</td></tr></tbody></table>`:''}
+  ${s.info?`<p class="hint" style="margin-top:12px">${esc([s.info.stkl&&'Steuerklasse '+s.info.stkl,s.info.kk&&s.info.kk+(s.info.kkZusatz!=null?' ('+String(s.info.kkZusatz).replace('.',',')+' % Zusatzbeitrag)':''),s.info.tarif&&'Tarif '+s.info.tarif].filter(Boolean).join(' · '))}</p>`:''}</div></div>`;
+}
+
+/* ---------- Sperrbildschirm ---------- */
+const gbox=$('gbox');let fails=0,blockUntil=0,hideT=0,hiddenAt=0;
+const LOCK='<div class="lockic"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>';
+const gerr=t=>{const e=$('gerr');if(e)e.textContent=t};
+function showApp(){$('gate').hidden=true;$('app').hidden=false;$('fMonth').value=nextMonth();render();secInfo();$('status').textContent='Verschlüsselt auf diesem Gerät gespeichert.';window.scrollTo(0,0)}
+function lock(){if(!dek)return;data={};slips={};pending=[];$('pdfPrev').innerHTML='';dekRaw=null;dek=null;for(const id of['fVal','io','np1','np2'])$(id).value='';render();$('app').hidden=true;$('gate').hidden=false;lockView(false)}
+function setupView(){
+  gbox.innerHTML=`${LOCK}<h1>App schützen</h1><p class="sub">Lege eine App-PIN fest. Deine Gehaltsdaten werden verschlüsselt gespeichert.</p>
+  <label>App-PIN (mind. 6 Ziffern)<input type="password" inputmode="numeric" autocomplete="new-password" id="s1" class="pin"></label>
+  <label>PIN wiederholen<input type="password" inputmode="numeric" autocomplete="new-password" id="s2" class="pin"></label>
+  <p class="err" id="gerr"></p><button type="button" class="big" id="sGo">Weiter</button>
+  <p class="hint">Merke dir die PIN gut: Ohne PIN lassen sich die Daten nicht wiederherstellen – nur aus einem Backup.</p>`;
+  $('sGo').onclick=async()=>{
+    const a=$('s1').value,b=$('s2').value;
+    if(!/^\d{6,}$/.test(a)){gerr('Bitte mindestens 6 Ziffern.');return}
+    if(a!==b){gerr('Die PINs stimmen nicht überein.');return}
+    $('sGo').disabled=true;$('sGo').textContent='Verschlüssele …';
+    let old={};try{old=JSON.parse(localStorage.getItem('gehalt')||'{}')||{}}catch(e){}
+    try{
+      dekRaw=rnd(32);dek=await aes(dekRaw);vault={ver:1};await wrapPin(a);
+      data=old;vault.data=await seal(dek,te.encode(JSON.stringify(data)));vStore();localStorage.removeItem('gehalt');
+    }catch(e){gerr('Einrichten fehlgeschlagen.');$('sGo').disabled=false;$('sGo').textContent='Weiter';return}
+    showApp();
+  };
+}
+function lockView(auto){
+  gbox.innerHTML=`${LOCK}<h1>Gesperrt</h1><p class="sub">Gehaltsverlauf entsperren</p>
+  <form id="lForm" style="background:none;padding:0;border-radius:0"><label>App-PIN<input type="password" inputmode="numeric" autocomplete="current-password" id="lPin" class="pin"></label><button type="submit" class="big" id="lGo">Mit PIN entsperren</button></form><p class="err" id="gerr"></p>`;
+  setTimeout(()=>{try{$('lPin').focus()}catch(e){}},50);
+  $('lForm').onsubmit=async e=>{
+    e.preventDefault();const w=Math.ceil((blockUntil-Date.now())/1000);
+    if(w>0){gerr(`Zu viele Versuche – bitte ${w} s warten.`);return}
+    $('lGo').disabled=true;$('lGo').textContent='Prüfe …';
+    try{const k=await pinKey($('lPin').value,unb64(vault.pin.salt),vault.pin.iter);await useDek(await unseal(k,vault.pin));fails=0;showApp()}
+    catch(x){fails++;if(fails>=5)blockUntil=Date.now()+30000*(fails-4);gerr(fails>=5?'Falsche PIN – kurz gesperrt.':'Falsche PIN.');$('lPin').value=''}
+    $('lGo').disabled=false;$('lGo').textContent='Mit PIN entsperren';
+  };
+}
+function secInfo(){
+  $('secInfo').textContent='Deine Daten sind mit der App-PIN verschlüsselt. Die App sperrt sich nach 1 Minute im Hintergrund.';
+}
+$('lockBtn').addEventListener('click',lock);
+$('pinBtn').addEventListener('click',async()=>{
+  const a=$('np1').value,b=$('np2').value;
+  if(!/^\d{6,}$/.test(a)){$('secMsg').textContent='Bitte mindestens 6 Ziffern.';return}
+  if(a!==b){$('secMsg').textContent='Die PINs stimmen nicht überein.';return}
+  try{await wrapPin(a);vStore();$('np1').value='';$('np2').value='';$('secMsg').textContent='PIN geändert.'}catch(e){$('secMsg').textContent='PIN ändern fehlgeschlagen.'}
+});
+let wipeArm=0;
+$('wipeBtn').addEventListener('click',()=>{
+  if(Date.now()-wipeArm>4000){wipeArm=Date.now();$('wipeBtn').textContent='Wirklich? Nochmal tippen zum Löschen';setTimeout(()=>{$('wipeBtn').textContent='Alle Daten löschen'},4000);return}
+  localStorage.removeItem(VKEY);localStorage.removeItem('gehalt');vault=null;data={};slips={};dek=null;dekRaw=null;render();
+  $('app').hidden=true;$('gate').hidden=false;setupView();
+});
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){hiddenAt=Date.now();clearTimeout(hideT);hideT=setTimeout(lock,60000)}
+  else{clearTimeout(hideT);if(dek&&hiddenAt&&Date.now()-hiddenAt>60000)lock();hiddenAt=0}
+});
+vault=vLoad();if(vault)lockView(true);else setupView();
+try{navigator.storage?.persist?.()}catch(e){}
+
+if('serviceWorker' in navigator){
+  let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(reloading)return;reloading=true;location.reload()});
+  navigator.serviceWorker.register('sw.js').then(reg=>{
+    const show=w=>{$('upd').style.display='flex';$('updBtn').onclick=()=>w.postMessage('skip')};
+    if(reg.waiting&&navigator.serviceWorker.controller)show(reg.waiting);
+    reg.addEventListener('updatefound',()=>{const w=reg.installing;w.addEventListener('statechange',()=>{if(w.state==='installed'&&navigator.serviceWorker.controller)show(w)})});
+    document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')reg.update().catch(()=>{})});
+  }).catch(()=>{});
+}
+}
+</script>
+</body>
+</html>
