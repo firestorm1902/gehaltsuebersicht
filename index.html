@@ -69,6 +69,7 @@ button.danger{border-color:var(--neg);color:var(--neg);background:transparent}
 .hint .bt,.sub .bt{margin:0 6px 0 0}
 .card .x{display:block;font-size:13px;color:var(--mut);margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);line-height:1.45}
 .bnt td:first-child{white-space:normal;min-width:7em}@media(max-width:600px){.bnt{font-size:13px}.bnt td,.bnt th{padding:6px 3px}}
+.bnt.rtt td:first-child{min-width:5em}@media(max-width:600px){.rtt td:not(:first-child),.rtt th{padding:6px 2px}}
 h3{font:600 16px Inter,system-ui,sans-serif;margin:26px 0 10px}
 .up-box{margin-top:16px;display:grid;gap:10px}
 .prev{background:var(--card);border-radius:10px;padding:16px;display:grid;gap:10px}
@@ -229,8 +230,9 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.10.0';
+const VERSION='1.10.1';
 const CHANGELOG=[
+  ['1.10.1','27.11.2026','Rentenrechner: Monatsrente brutto und netto nominal und in heutiger Kaufkraft, mit Kaufkraftverlust.'],
   ['1.10.0','27.11.2026','Neuer Brutto-Netto-Rechner: Brutto und Erhöhung frei einstellbar, Jobrad und Betriebsrente einzeln abwählbar, mit Vergleich und Netto-Kosten der Extras.'],
   ['1.9.0','27.11.2026','Neuer Reiter Rentenrechner: fiktive Hochrechnung von gesetzlicher Rente (brutto und netto), Betriebsrente und privatem Sparen bis zum Rentenbeginn, mit Rentenlücke – alles in heutiger Kaufkraft.'],
   ['1.8.3','27.11.2026','Fix: Bei mehreren Sonderzahlungen in einem Monat (z. B. Sonderzahlung + T-ZUG) wurden Steuer und SV bei älteren Uploads einer Zahlung allein zugeordnet.'],
@@ -983,13 +985,19 @@ function tRechner(el,ks){
   const tot=gNet+bavR+privR,mx=Math.max(need,tot+Math.max(0,gap),1);
   const ms=[];for(let a=Math.ceil((nowY-opts.rGj)/10)*10;a<=opts.rRa;a+=10){const y=opts.rGj+a;if(y<nowY)continue;const pp=(opts.rPre||0)+rv.tot+pY*(y-nowY);ms.push([a,y,pp])}
   ms.push([opts.rRa,retY,PT]);
-  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Fiktive, stark vereinfachte Hochrechnung – keine Rentenauskunft. Alle Beträge in <b>heutiger Kaufkraft</b> (inflationsbereinigt), damit du sie mit deinem heutigen Einkommen vergleichen kannst.</p>
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Fiktive, stark vereinfachte Hochrechnung – keine Rentenauskunft. Beträge nominal (was dann überwiesen wird) und in <b>heutiger Kaufkraft</b> (inflationsbereinigt), damit du sie mit deinem heutigen Einkommen vergleichen kannst.</p>
   ${inputs}
-  <p class="lead2" style="margin-top:18px">Rentenbeginn <b>${Math.floor(retY)}</b> mit ${opts.rRa} – in ${fh(Math.round(n*10)/10)} Jahren. Gesetzliche Rente ca. <b>${E(gReal)}</b> brutto, <b>${E(gNet)}</b> netto im Monat.</p>
+  <h3 style="margin-top:20px">Deine mögliche Monatsrente ab ${Math.floor(retY)}</h3>
+  <p class="hint" style="margin-top:-4px">Rentenbeginn mit ${opts.rRa} – in ${fh(Math.round(n*10)/10)} Jahren. <b>Nominal</b> = der Betrag, der dann tatsächlich überwiesen wird. <b>Heutige Kaufkraft</b> = was dieser Betrag nach ${fh(opts.rInf)} % Inflation pro Jahr heute wert wäre. Kaufkraftverlust bis dahin: <b>${P(1-1/disc)}</b>.</p>
+  <div class="scroll"><table class="bnt rtt"><thead><tr><th></th><th>Nominal ${Math.floor(retY)}</th><th>Wert heute</th><th>Verlust</th></tr></thead><tbody>
+   ${[['Gesetzl. Rente '+bt('Brutto'),gReal,1,1],['− Krankenvers.',kv,-1],['− Pflegevers.',pv,-1],['− Steuer',tax,-1],['<b>Gesetzl. Rente</b> '+bt('Netto'),gNet,1,1],['+ Betriebsrente*',bavR,1],['+ Privat gespart*',privR,1],['<b>Zusammen</b>',tot,1,1]].map(([l,v,sg,b])=>`<tr${b?' style="font-weight:600"':''}><td>${l}</td><td>${sg<0?'−':''}${esc(eur0.format(v*disc))}</td><td>${sg<0?'−':''}${esc(eur0.format(v))}</td><td class="dn">${sg<0?'':'−'+esc(eur0.format(v*disc-v))}</td></tr>`).join('')}
+  </tbody></table></div>
+  <p class="hint" style="margin-top:6px">* vor Steuern und Kranken-/Pflegeversicherung.</p>
+  <p class="lead2" style="margin-top:10px">Überwiesen werden ca. <b>${E(gNet*disc)}</b> netto – das entspricht heute <b>${E(gNet)}</b>.${gap>0?` Zu deinem Bedarf fehlen in heutiger Kaufkraft ${E(gap)} im Monat.`:''}</p>
   <div class="cards">
   ${card('Rentenpunkte bei Rentenbeginn','',fh(Math.round(PT*100)/100),`${fh(Math.round(((opts.rPre||0)+rv.tot)*100)/100)} bisher + ${fh(Math.round(pY*n*100)/100)} künftig`,`Bisher: ${fh(Math.round((opts.rPre||0)*100)/100)} eingetragen + ${fh(Math.round(rv.tot*100)/100)} aus deinen Abrechnungen. Künftig: ${fh(Math.round(pY*100)/100)} Punkte × ${fh(Math.round(n*10)/10)} Jahre.`)}
-  ${card('Gesetzliche Rente',bt('Brutto'),E(gReal),`heutige Kaufkraft · nominal ${E(gNom)}`,`${fh(Math.round(PT*100)/100)} Punkte × ${eur.format(RENTENWERT)} (Rentenwert heute) = ${E(gHeute)}. Nominal wächst der Rentenwert mit ${fh(opts.rRw)} % pro Jahr, abgezinst mit ${fh(opts.rInf)} % Inflation.`)}
-  ${card('Gesetzliche Rente',bt('Netto'),E(gNet),`− KV ${E(kv)} · PV ${E(pv)} · Steuer ${E(tax)}`,`Krankenversicherung ${P(kvR)} (halber Satz + halber Zusatzbeitrag), Pflegeversicherung ${P(pvR)} (voller Satz, ohne Kinder), Einkommensteuer nach heutigem Tarif bei voll steuerpflichtiger Rente, ohne weitere Einkünfte.`)}
+  ${card('Gesetzliche Rente',bt('Brutto'),E(gNom),`nominal · heute ${E(gReal)} wert`,`${fh(Math.round(PT*100)/100)} Punkte × ${eur.format(RENTENWERT)} (Rentenwert heute) = ${E(gHeute)}. Nominal wächst der Rentenwert mit ${fh(opts.rRw)} % pro Jahr, abgezinst mit ${fh(opts.rInf)} % Inflation.`)}
+  ${card('Gesetzliche Rente',bt('Netto'),E(gNet*disc),`nominal · heute ${E(gNet)} wert`,`Krankenversicherung ${P(kvR)} (halber Satz + halber Zusatzbeitrag), Pflegeversicherung ${P(pvR)} (voller Satz, ohne Kinder), Einkommensteuer nach heutigem Tarif bei voll steuerpflichtiger Rente, ohne weitere Einkünfte. Nominal: Annahme, dass Steuerfreibeträge mit der Inflation steigen.`)}
   ${card('Rentenlücke',bt('Netto'),gap>0?E(gap):'keine',`Bedarf ${fh(opts.rNeed)} % von ${E(a1)} = ${E(need)}`,gap>0?`So viel fehlt monatlich, wenn du im Alter ${fh(opts.rNeed)} % deines heutigen Monatswerts (${vN()}) haben möchtest – nach gesetzlicher Rente, bAV und Sparen.`:'Gesetzliche Rente, bAV und Sparen decken deinen angenommenen Bedarf.')}
   </div>
   <h3>Was im Alter zusammenkommt</h3>
