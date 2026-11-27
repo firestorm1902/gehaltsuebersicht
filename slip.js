@@ -45,7 +45,7 @@
 
   function parsePage(lines) {
     const p = { month: null, retroFor: null, brutto: null, items: [], tax: { lfd: 0, sonst: 0 }, taxBase: { lfd: 0, sonst: 0 },
-      sv: { kv: 0, rv: 0, av: 0, pv: 0 }, svEinmal: 0, netto: null, after: [], summeLfd: null, uebertrag: 0, auszahlung: null,
+      sv: { kv: 0, rv: 0, av: 0, pv: 0 }, svEinmal: 0, svLfd: null, svBaseLfd: null, lstLfd: null, netto: null, after: [], summeLfd: null, uebertrag: 0, auszahlung: null,
       year: null, info: {} };
     let sec = 'head';
     for (const L of lines) {
@@ -63,7 +63,8 @@
       if (sec === 'year') {
         if (/^Gesamtbrutto/.test(L)) p.year.brutto = last(nums(L));
         else if (/^Bezug/.test(L)) { const n = nums(L); p.year.steuerbrutto = n[0]; p.year.lohnsteuer = n[1] || 0; if (n.length > 2) p.year.kist = n[2]; }
-        else if (/^SV-Beitrag/.test(L)) { const n = nums(L); p.year.sv = r2(n.reduce((a, b) => a + b, 0)); }
+        else if (/^SV-Beitrag/.test(L)) { const n = nums(L); p.year.sv = r2(n.reduce((a, b) => a + b, 0)); if (n.length >= 4) p.year.svParts = { kv: n[0], rv: n[1], av: n[2], pv: n[3] }; }
+        else if (/^SV-Brutto/.test(L)) { const n = nums(L); if (n.length) p.year.svBrutto = n[0]; }
         continue;
       }
       if (/^Gesamtbrutto/.test(L)) { p.brutto = last(nums(L)); sec = 'calc'; continue; }
@@ -79,11 +80,12 @@
         continue;
       }
       if (sec === 'calc') {
-        if (/^Laufender Bezug/.test(L)) { const n = nums(L); p.taxBase.lfd = n[0]; p.tax.lfd = Math.abs(last(n)); }
+        if (/^Laufender Bezug/.test(L)) { const n = nums(L); p.taxBase.lfd = n[0]; p.tax.lfd = Math.abs(last(n)); p.lstLfd = n.length >= 3 ? n[1] : Math.abs(last(n)); }
         else if (/^Sonstiger Bezug/.test(L)) { const n = nums(L); p.taxBase.sonst = n[0]; p.tax.sonst = Math.abs(last(n)); }
+        else if (/^SV-Brutto lfd\./.test(L)) { p.svBaseLfd = nums(L); }
         else if (/^SV-Beitrag lfd\./.test(L) || /^SV-Beitrag Einmalb\./.test(L)) {
           const n = nums(L); p.sv.kv += n[0]; p.sv.rv += n[1]; p.sv.av += n[2]; p.sv.pv += n[3];
-          if (/Einmalb/.test(L)) p.svEinmal += Math.abs(last(n));
+          if (/Einmalb/.test(L)) p.svEinmal += Math.abs(last(n)); else p.svLfd = { kv: n[0], rv: n[1], av: n[2], pv: n[3] };
         }
         else if (/^Netto\s/.test(L) || L === 'Netto') { p.netto = last(nums(L)); sec = 'after'; }
         continue;
@@ -109,13 +111,13 @@
     const main = parsed.find(p => !p.retroFor) || parsed[parsed.length - 1];
     if (!main) throw new Error('Keine Verdienstabrechnung erkannt.');
     const retros = parsed.filter(p => p !== main && p.retroFor).map(p => ({ month: p.retroFor, brutto: p.brutto, netto: p.netto,
-      tax: r2(p.tax.lfd + p.tax.sonst), sv: r2(p.sv.kv + p.sv.rv + p.sv.av + p.sv.pv), items: p.items.map(i => ({ name: i.name, amount: i.amount })) }));
+      tax: r2(p.tax.lfd + p.tax.sonst), sv: r2(p.sv.kv + p.sv.rv + p.sv.av + p.sv.pv), items: p.items }));
     const tax = r2(main.tax.lfd + main.tax.sonst);
     const sv = r2(main.sv.kv + main.sv.rv + main.sv.av + main.sv.pv);
     const special = main.items.filter(i => /WEIHNACHT|URLAUBSGELD|SONDERZ|PRÄMIE|PRAEMIE|BONUS|EINMAL|ERFOLGSBET|JUBIL|13\./i.test(i.name) || (main.taxBase.sonst && i.amount === main.taxBase.sonst));
     return {
       month: main.month, brutto: main.brutto, steuerbrutto: r2(main.taxBase.lfd + main.taxBase.sonst), sonstBezug: main.taxBase.sonst,
-      tax, taxLfd: main.tax.lfd, taxSonst: main.tax.sonst, sv: main.sv, svTotal: sv, svEinmal: r2(main.svEinmal),
+      tax, taxLfd: main.tax.lfd, taxSonst: main.tax.sonst, lstLfd: main.lstLfd, sv: main.sv, svTotal: sv, svEinmal: r2(main.svEinmal), svLfd: main.svLfd, svBaseLfd: main.svBaseLfd,
       netto: main.netto, after: main.after, summeLfd: main.summeLfd, uebertrag: main.uebertrag || 0,
       auszahlung: main.auszahlung ?? main.summeLfd ?? main.netto,
       items: main.items, special: special.map(i => ({ name: i.name, amount: i.amount })), retros, year: main.year, info: main.info

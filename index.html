@@ -228,8 +228,9 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.7.1';
+const VERSION='1.8.0';
 const CHANGELOG=[
+  ['1.8.0','27.11.2026','Neue Analysen: Was von mehr Brutto netto bleibt, Gehaltserhöhung simulieren, Steuererklärungs-Helfer mit Werbungskosten, Zuschläge und Sonderzahlungen, Rentenpunkte, Bilanz von Betriebsrente und Jobrad, Kaufkraft nach Inflation, Gehaltsziel, Sparrechner und Auffälligkeiten-Check.'],
   ['1.7.1','27.11.2026','Überall gekennzeichnet, ob ein Wert Brutto, Netto oder Auszahlung ist, mit ausführlicheren Erklärungen. Neu: Netto-Stundenlohn.'],
   ['1.7.0','24.11.2026','Monatsanalyse: alle Positionen mit anteiliger Lohnsteuer und Sozialversicherung und was davon netto bleibt. Weg vom Netto zur Auszahlung. Netto-Kosten von Jobrad, Betriebsrente und Kantine.'],
   ['1.6.1','24.11.2026','Arbeitszeit einstellbar (Std./Woche, Urlaubs- und Feiertage): Tageslohn, Lohn pro bezahlter und pro gearbeiteter Stunde, Brutto-Stundenlohn.'],
@@ -243,7 +244,7 @@ const CHANGELOG=[
   ['1.1.0','24.11.2026','Installierbar als App (PWA), funktioniert offline. Versionsanzeige mit Änderungsverlauf. Backup als Datei speichern und laden.'],
   ['1.0.0','24.11.2026','Erste Version: Monate eintragen, Verlauf mit 12-Monats-Schnitt, Kennzahlen, Jahresübersicht, Import der Excel-Werte.']
 ];
-let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
+let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10,km:0,ho:0,wm:0,goal:0,sq:15,ret:5,raise:3,raiseFrom:''};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
 
 const idx=k=>{const[y,m]=k.split('-').map(Number);return y*12+m-1};
 const key=i=>Math.floor(i/12)+'-'+String(i%12+1).padStart(2,'0');
@@ -610,11 +611,11 @@ function chart(id,o){charts[id]=()=>lineChart(id,o)}
 
 function analysis(){
   const ks=sorted();const band=$('anlBand');band.hidden=ks.length<2;if(band.hidden){$('anl').innerHTML='';return}
-  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],...(Object.keys(slips).length?[['brutto','Brutto & Abgaben']]:[])];
+  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],['brutto','Brutto & Abgaben'],['steuer','Steuer & Netto'],['extras','Zuschläge & Sonderzahlungen'],['vorsorge','Rente & Vorsorge'],['kaufkraft','Kaufkraft'],['ziele','Ziele & Sparen'],['check','Auffälligkeiten']];
   if(!tabs.some(t=>t[0]===aTab))aTab='jahre';
   $('anlTabs').innerHTML=tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${k===aTab}" data-t="${k}">${t}</button>`).join('');
   for(const k in charts)delete charts[k];
-  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto})[aTab]($('anl'),ks);
+  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto,steuer:tSteuer,extras:tExtras,vorsorge:tVorsorge,kaufkraft:tKaufkraft,ziele:tZiele,check:tCheck})[aTab]($('anl'),ks);
   for(const f of Object.values(charts))f();
 }
 $('anlTabs').addEventListener('click',e=>{const b=e.target.closest('button[data-t]');if(!b)return;aTab=b.dataset.t;analysis()});
@@ -779,6 +780,216 @@ function tBrutto(el){
   el.innerHTML=`<p class="hint" style="margin:0 0 12px">Diese Werte kommen direkt aus deinen hochgeladenen Abrechnungen. ${bt('Brutto')} vor Steuer und Sozialversicherung · ${bt('Netto')} nach Steuer und Sozialversicherung · Auszahlung = was aufs Konto kommt.</p>${top}
   ${yrows?`<h3>Jahreswerte laut Abrechnung</h3><p class="hint" style="margin-top:-4px">Aus dem Block „Jahreswerte“ der jeweils letzten Abrechnung eines Jahres. ${bt('Brutto')} Gesamtbrutto inkl. Sonderzahlungen; Quote = Lohnsteuer + Sozialversicherung im Verhältnis zum Brutto.</p><div class="scroll"><table><thead><tr><th>Jahr</th><th>Brutto</th><th>Lohnsteuer</th><th>Sozialvers.</th><th>Quote</th></tr></thead><tbody>${yrows}</tbody></table></div>`:''}
   ${raise}`;
+}
+
+/* ---------- Erweiterte Analysen ---------- */
+const DE={2023:44732,2024:47085,2025:50493,2026:51944};const DE_V={2025:1,2026:1};
+const RENTENWERT=42.52;
+const VPI={'2025-01':120.3,'2025-02':120.8,'2025-03':121.2,'2025-04':121.7,'2025-05':121.8,'2025-06':121.8,'2025-07':122.2,'2025-08':122.3,'2025-09':122.6,'2025-10':123.0,'2025-11':122.7,'2025-12':122.7,'2026-01':122.8,'2026-02':123.1,'2026-03':124.5,'2026-04':125.2,'2026-05':125.0};
+const VPIY={2023:116.7,2024:119.3,2025:121.9};const VPI_LAST='2026-05';
+const vpi=k=>VPI[k]??(k>VPI_LAST?VPI[VPI_LAST]:VPIY[k.slice(0,4)]??null);
+function estC(z){if(z<=12348)return 0;if(z<=17799){const y=(z-12348)/1e4;return(914.51*y+1400)*y}if(z<=69878){const q=(z-17799)/1e4;return(173.10*q+2397)*q+1034.87}if(z<=277825)return .42*z-11135.63;return .45*z-19470.38}
+function estInv(t){if(t<=0)return 12348;let lo=12348,hi=2e6;for(let i=0;i<80;i++){const m=(lo+hi)/2;if(estC(m)<t)lo=m;else hi=m}return(lo+hi)/2}
+function netModel(s){
+  const B0=(s.steuerbrutto||0)-(s.sonstBezug||0);if(!(B0>0))return null;
+  const bs=s.svBaseLfd||[],p=s.svLfd;let r;
+  if(p){r={kv:p.kv/(bs[1]||B0),rv:p.rv/(bs[2]||B0),av:p.av/(bs[3]||B0),pv:p.pv/(bs[4]||B0)}}
+  else{const f=((s.svTotal||0)-(s.svEinmal||0))/B0;r={kv:f*.4,rv:f*.43,av:f*.06,pv:f*.11}}
+  const BK=5812.5,BR=8450;
+  const sv=B=>r.kv*Math.min(B,BK)+r.pv*Math.min(B,BK)+r.rv*Math.min(B,BR)+r.av*Math.min(B,BR);
+  const lst0=s.lstLfd??s.taxLfd??0;const ratio=lst0?(s.taxLfd||lst0)/lst0:1;
+  const zRaw=B=>12*B-12*sv(B)-1230-36;
+  const z0=estInv(lst0*12),off=z0-zRaw(B0);
+  const tax=B=>estC(Math.max(0,zRaw(B)+off))/12*ratio;
+  return{B0,r,sv,tax,net:B=>B-tax(B)-sv(B)};
+}
+const lastSlip=()=>{const k=Object.keys(slips).filter(x=>KEY.test(x)).sort().pop();return k?slips[k]:null};
+const needSlips=t=>`<div class="note">Für ${t} brauche ich mindestens eine hochgeladene Verdienstabrechnung (PDF). Lade sie oben unter „Abrechnungen hochladen“ hoch – am besten nach dem Update erneut, damit alle Details erkannt werden.</div>`;
+const oIn=(k,label,val,min,max,type)=>`<label>${label}<input data-o="${k}" ${type==='m'?'type="month"':'inputmode="decimal"'} data-min="${min??''}" data-max="${max??''}" value="${esc(val)}"></label>`;
+const card=(l,b,n,s,x)=>`<div class="card"><span class="l">${esc(l)}${b||''}</span><span class="num">${n}</span>${s?`<span class="s">${s}</span>`:''}${x?`<span class="x">${x}</span>`:''}</div>`;
+const GRP=[['Jobrad',/jobrad|leasing|fahrrad|bike/i],['Betriebsrente (bAV)',/\bbav\b|betriebl|pensionsk|direktvers|altersvers/i],['Kantine',/kantine/i],['Vermögenswirksame Leistungen',/\bvwl\b|vermögensw|avwl/i]];
+function groupsOf(s){
+  const it=alloc(s),used=new Set(),out={};
+  for(const[g,re]of GRP){
+    const gi=it.filter(i=>re.test(i.name)&&i.kind!=='info');const hasS=gi.some(i=>/sachbez/i.test(i.name));
+    const ga=(s.after||[]).filter((a,k)=>{if(used.has(k))return false;if(re.test(a.name)||(hasS&&/sachbez/i.test(a.name))){used.add(k);return true}return false});
+    if(!ga.length&&!gi.some(i=>i.kind==='umw'))continue;
+    const save=sum(gi.filter(i=>i.kind==='umw').map(i=>i.net)),vort=sum(gi.filter(i=>i.kind!=='umw').map(i=>i.net)),cut=sum(ga.map(a=>a.amount));
+    out[g]={save,vort,cut,tot:save+vort+cut,umw:-sum(gi.filter(i=>i.kind==='umw').map(i=>i.amount))};
+  }
+  return out;
+}
+$('anl').addEventListener('change',e=>{
+  const t=e.target;const k=t.dataset&&t.dataset.o;if(!k)return;
+  let v;if(t.type==='month'){v=KEY.test(t.value)?t.value:''}else{v=parse(t.value);const lo=t.dataset.min===''?-Infinity:+t.dataset.min,hi=t.dataset.max===''?Infinity:+t.dataset.max;
+    if(isNaN(v)||v<lo||v>hi){toast(`Bitte einen Wert zwischen ${lo} und ${hi} eingeben`);return}}
+  opts[k]=v;lsSave();analysis();
+});
+
+/* 1 + 9 + 6: Steuer & Netto */
+function tSteuer(el){
+  const s=lastSlip();if(!s){el.innerHTML=needSlips('die Steuer-Analysen');return}
+  const m=netModel(s);if(!m){el.innerHTML=needSlips('die Steuer-Analysen');return}
+  const B0=m.B0,d100=m.net(B0+100)-m.net(B0),t100=m.tax(B0+100)-m.tax(B0),s100=m.sv(B0+100)-m.sv(B0);
+  const avgKeep=m.net(B0)/B0;
+  const sp=Object.keys(slips).sort().reverse().map(k=>slips[k]).find(x=>x.sonstBezug>0);
+  const C=[card('Von 100 € mehr Brutto',bt('Netto'),'bleiben '+E(d100),`Lohnsteuer −${E(t100)} · SV −${E(s100)}`,`Grenzbelastung: Jeder zusätzliche Euro laufendes Brutto wird mit rund ${P(1-d100/100)} belastet – deutlich mehr als im Durchschnitt, weil der Steuersatz mit dem Einkommen steigt.`),
+    card('Im Durchschnitt',bt('Netto'),'bleiben '+P(avgKeep),`${E(m.net(B0))} von ${E(B0)} laufendem Brutto`,'Durchschnittsbelastung über dein gesamtes laufendes Gehalt. Die ersten Euros sind steuerfrei (Grundfreibetrag), deshalb liegt der Durchschnitt höher als der Grenzwert.')];
+  if(sp)C.push(card('Von 100 € Sonderzahlung',bt('Netto'),'bleiben '+E(100*(sp.sonstBezug-sp.taxSonst-sp.svEinmal)/sp.sonstBezug),`laut Abrechnung ${esc(lab(sp.month))}`,'Einmalzahlungen wie Urlaubs- oder Weihnachtsgeld werden als „sonstiger Bezug“ besteuert – sie landen komplett in deinem höchsten Steuersatz.'));
+  const rows=[100,250,500,1000].map(d=>{const dn=m.net(B0+d)-m.net(B0);return`<tr><td>+${E(d)}</td><td>+${E(dn)}</td><td>${P(dn/d)}</td><td>−${E(m.tax(B0+d)-m.tax(B0))}</td><td>−${E(m.sv(B0+d)-m.sv(B0))}</td></tr>`}).join('');
+  // Szenario
+  const tarif=sum((s.items||[]).filter(i=>!i.free&&(i.st==='01'||i.st==null)&&i.amount>0&&!/sachbez/i.test(i.name)).map(i=>i.amount))||B0;
+  const r=(opts.raise||0)/100,dB=tarif*r,dN=m.net(B0+dB)-m.net(B0);
+  const from=KEY.test(opts.raiseFrom||'')?opts.raiseFrom:key(idx(s.month)+1);
+  const restY=12-(idx(from)%12);
+  const ks=sorted();const L=idx(ks[ks.length-1]);const w=ks.filter(k=>idx(k)>L-12).map(k=>data[k]);const a1=w.length?sum(w)/w.length:0;
+  // Steuererklärung
+  const yl={};for(const k of Object.keys(slips).sort())if(slips[k].year)yl[k.slice(0,4)]=k;
+  const yrs=Object.keys(yl).sort().reverse();
+  const yRows=yrs.map(y=>{const o=slips[yl[y]].year,mo=+yl[y].slice(5),p=o.svParts||{};return`<tr><td>${y}${mo<12?` <small style="color:var(--mut)">bis ${MON[mo-1]}</small>`:''}</td><td>${E(o.steuerbrutto)}</td><td>${E(o.lohnsteuer)}</td><td>${p.kv!=null?E(p.kv):'–'}</td><td>${p.pv!=null?E(p.pv):'–'}</td><td>${p.rv!=null?E(p.rv):'–'}</td><td>${p.av!=null?E(p.av):'–'}</td></tr>`}).join('');
+  const wd=Math.max(1,260-opts.vac-opts.hol);const ho=Math.min(opts.ho||0,wd);const office=Math.max(0,wd-ho);
+  const pend=(opts.km||0)*0.38*office,hoP=Math.min(ho*6,1260),wk=pend+hoP+(opts.wm||0),extra=Math.max(0,wk-1230);
+  let refund='';
+  if(yrs.length){const y=yrs[0],o=slips[yl[y]].year,mo=+yl[y].slice(5);const zY=estInv((o.lohnsteuer||0)/mo*12);const rf=estC(zY)-estC(Math.max(0,zY-extra));
+    refund=extra>0?`<div class="note"><b>Mögliche Erstattung ca. ${E(rf)}</b> – deine Werbungskosten (${E(wk)}) liegen ${E(extra)} über dem Pauschbetrag von 1.230 €, der ohnehin automatisch abgezogen wird. Grob geschätzt mit deinem Steuersatz ${y}; andere Posten (Spenden, Versicherungen, Handwerker …) nicht berücksichtigt.</div>`
+    :`<div class="note">Deine Werbungskosten (${E(wk)}) liegen unter dem Pauschbetrag von 1.230 €, der automatisch abgezogen wird. Allein dafür lohnt sich eine Steuererklärung eher nicht – andere Posten können es trotzdem lohnenswert machen.</div>`}
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Basis: Abrechnung ${esc(labLong(s.month))} – laufendes steuerpflichtiges ${bt('Brutto')} ${E(B0)}. Berechnet mit dem Steuertarif 2026 (§ 32a EStG) und deinen Beitragssätzen; kalibriert auf deine tatsächliche Lohnsteuer. Ohne Gewähr.</p>
+  <div class="cards">${C.join('')}</div>
+  <h3>Was bleibt von mehr Brutto?</h3>
+  <p class="hint" style="margin-top:-4px">Pro Monat, auf dein laufendes Gehalt. Ab ${E(5812.5)} Brutto (Beitragsbemessungsgrenze Kranken-/Pflegeversicherung) sinkt die SV-Belastung.</p>
+  <div class="scroll"><table><thead><tr><th>Brutto mehr</th><th>Netto mehr</th><th>bleibt</th><th>Lohnsteuer</th><th>SV</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <h3>Gehaltserhöhung simulieren</h3>
+  <div class="prev"><div class="wt" style="grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)">${oIn('raise','Erhöhung in %',fh(opts.raise),0,50)}${oIn('raiseFrom','ab Monat',from,null,null,'m')}</div>
+  <p style="margin:6px 0 0">Auf dein Tarifentgelt (${E(tarif)}) gerechnet: ${bt('Brutto')} <b>+${E(dB)}</b> im Monat → ${bt('Netto')} <b>+${E(dN)}</b> im Monat (${P(dB?dN/dB:0)} davon bleiben).</p>
+  <p class="hint" style="margin:6px 0 0">Bis Ende ${from.slice(0,4)} (${restY} ${restY===1?'Monat':'Monate'}): +${E(dN*restY)} netto · auf 12 Monate: +${E(dN*12)} netto. Dein Ø Monatswert (${vN()}) stiege von ${E(a1)} auf ca. ${E(a1+dN)}. Sonderzahlungen, die sich am Gehalt orientieren, steigen zusätzlich.</p></div>
+  <h3>Helfer für die Steuererklärung</h3>
+  ${yRows?`<p class="hint" style="margin-top:-4px">Werte aus dem Block „Jahreswerte“ deiner letzten Abrechnung je Jahr – so stehen sie auch auf der Lohnsteuerbescheinigung. ${bt('Brutto')} Steuerbrutto; Sozialversicherung = dein Arbeitnehmeranteil.</p>
+  <div class="scroll"><table><thead><tr><th>Jahr</th><th>Steuerbrutto</th><th>Lohnsteuer</th><th>KV</th><th>PV</th><th>RV</th><th>AV</th></tr></thead><tbody>${yRows}</tbody></table></div>`:''}
+  <div class="prev" style="margin-top:12px"><b>Werbungskosten grob schätzen</b>
+  <div class="wt">${oIn('km','km einfach',fh(opts.km||0),0,500)}${oIn('ho','Homeoffice-Tage',opts.ho||0,0,260)}${oIn('wm','Sonstiges €',fh(opts.wm||0),0,100000)}</div>
+  <p class="hint" style="margin:0">Pendlerpauschale 2026: 0,38 € je km ab dem ersten km × ${office} Bürotage = ${E(pend)} · Homeoffice-Pauschale 6 € je Tag (max. 1.260 €) = ${E(hoP)} · Sonstiges (Arbeitsmittel, Fortbildung …) ${E(opts.wm||0)} → <b>${E(wk)}</b>.</p></div>
+  ${refund}`;
+}
+
+/* 2 + 3: Zuschläge & Sonderzahlungen */
+function tExtras(el){
+  const S=Object.keys(slips).filter(k=>KEY.test(k)).sort();if(!S.length){el.innerHTML=needSlips('Zuschläge und Sonderzahlungen');return}
+  const ZRE=/rufber|bereitsch|zuschl|nachtarb|überstund|mehrarb|schichtz/i;
+  const SRE=/urlaubsgeld|weihnacht|t-zug|zusatzgeld|prämie|praemie|bonus|erfolgsbet|inflationsaus|jubil|13\.|sonderz/i;
+  const Z={};const add=(mo,b,n,f,src)=>{const o=Z[mo]=Z[mo]||{b:0,n:0,f:0,src:new Set()};o.b+=b;o.n+=n;o.f+=f;o.src.add(src)};
+  const SP=[];
+  for(const k of S){const s=slips[k];const it=alloc(s);
+    for(const i of it){if(i.kind==='info'&&ZRE.test(i.name)&&/frei/i.test(i.name))add(k,0,0,i.amount,'');
+      else if((i.kind==='lfd'||i.kind==='sonst')&&ZRE.test(i.name))add(k,i.amount,i.net,i.st==='00'?i.amount:0,i.name);
+      if((i.kind==='sonst'||(i.kind==='lfd'&&SRE.test(i.name)))&&!ZRE.test(i.name))SP.push({k,name:i.name,b:i.amount,n:i.net})}
+    for(const r of s.retros||[]){const q=r.brutto?r.netto/r.brutto:0;for(const i of r.items||[]){if(!ZRE.test(i.name))continue;
+      if(i.free){if(/frei/i.test(i.name))add(r.month,0,0,i.amount,'')}else add(r.month,i.amount,i.amount*q,i.st==='00'?i.amount:0,i.name)}}}
+  const zm=Object.keys(Z).filter(k=>Z[k].b>0).sort();
+  let zh='<p class="hint">In deinen Abrechnungen wurden keine Zuschläge oder Bereitschaften gefunden.</p>';
+  if(zm.length){
+    const mx=Math.max(...zm.map(k=>Z[k].b));
+    const byY={};for(const k of zm){const y=k.slice(0,4);const o=byY[y]=byY[y]||{b:0,n:0,f:0,c:0};o.b+=Z[k].b;o.n+=Z[k].n;o.f+=Z[k].f;o.c++}
+    const names=[...new Set(zm.flatMap(k=>[...Z[k].src]).filter(Boolean))];
+    zh=`<div class="cards">${Object.keys(byY).sort().reverse().map(y=>{const o=byY[y];return card('Zuschläge '+y,bt('Brutto'),E(o.b),`≈ ${E(o.n)} netto · in ${o.c} Monat${o.c>1?'en':''}`,o.f?`Davon steuerfreier Anteil ca. ${E(o.f)} – Nacht-, Sonn- und Feiertagszuschläge sind teilweise steuerfrei.`:'')}).join('')}</div>
+    <h3>Pro Monat</h3><p class="hint" style="margin-top:-4px">Zugeordnet zum Monat, in dem du gearbeitet hast – Nachberechnungen aus späteren Abrechnungen sind eingerechnet. Netto anteilig geschätzt.</p>
+    ${zm.slice().reverse().map(k=>`<div class="yr"><span>${esc(lab(k))}</span><div><div class="bar"><span style="width:${(Z[k].b/mx*100).toFixed(1)}%"></span></div><small>≈ ${E(Z[k].n)} netto</small></div><span class="v">${E(Z[k].b)}</span></div>`).join('')}
+    <p class="hint" style="margin-top:8px">Erkannte Lohnarten: ${esc(names.join(', '))}</p>`;
+  }
+  let sh='<p class="hint">Keine Sonderzahlungen in deinen Abrechnungen gefunden.</p>';
+  if(SP.length){const byY={};for(const x of SP)(byY[x.k.slice(0,4)]=byY[x.k.slice(0,4)]||[]).push(x);
+    sh=Object.keys(byY).sort().reverse().map(y=>{const a=byY[y];return`<h3 style="margin-top:18px">${y}: ${E(sum(a.map(x=>x.b)))} brutto → ${E(sum(a.map(x=>x.n)))} netto</h3><div class="poslist">${a.map(x=>`<div class="pos"><div class="pt"><span class="pn">${esc(x.name)} <small style="color:var(--mut)">${esc(lab(x.k))}</small></span><b>${E(x.n)}</b></div><div class="pd">Brutto ${E(x.b)} · bleibt ${P(x.b?x.n/x.b:0)}</div></div>`).join('')}</div>`}).join('');}
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Aus deinen hochgeladenen Abrechnungen. ${bt('Brutto')} laut Abrechnung, ${bt('Netto')} anteilig geschätzt (wie in der Monatsanalyse).</p>
+  <h3 style="margin-top:0">Zuschläge & Bereitschaft</h3>${zh}<h3>Sonderzahlungen</h3>${sh}`;
+}
+
+/* 4 + 5: Rente & Vorsorge */
+function tVorsorge(el){
+  const S=Object.keys(slips).filter(k=>KEY.test(k)).sort();if(!S.length){el.innerHTML=needSlips('Rente und Vorsorge');return}
+  const yl={};for(const k of S)if(slips[k].year)yl[k.slice(0,4)]=k;
+  let tot=0,totP=0;const rows=Object.keys(yl).sort().map(y=>{const s=slips[yl[y]],o=s.year,mo=+yl[y].slice(5);
+    const rvB=o.svBrutto??(o.svParts?o.svParts.rv/0.093:null);const de=DE[y];if(!rvB||!de)return'';
+    const pts=rvB/de,proj=mo<12?pts/mo*12:pts;tot+=pts;totP+=proj;
+    return`<tr><td>${y}${mo<12?` <small style="color:var(--mut)">bis ${MON[mo-1]}</small>`:''}</td><td>${E(rvB)}</td><td>${eur.format(de).replace(',00','')}</td><td>${pts.toLocaleString('de-DE',{maximumFractionDigits:3})}</td><td>${mo<12?'≈ '+proj.toLocaleString('de-DE',{maximumFractionDigits:2}):'–'}</td></tr>`}).join('');
+  const grp={};for(const k of S){const g=groupsOf(slips[k]);for(const n in g){const o=grp[n]=grp[n]||{save:0,cut:0,tot:0,umw:0,c:0,vort:0};o.save+=g[n].save;o.cut+=g[n].cut;o.tot+=g[n].tot;o.umw+=g[n].umw;o.vort+=g[n].vort;o.c++}}
+  const gh=Object.entries(grp).map(([n,o])=>{
+    const pay=-o.cut;const txt=/Betriebs/.test(n)?`Eingezahlt ${E(o.umw||pay)} in ${o.c} ${o.c===1?'Monat':'Monaten'}. Netto hat dich das nur <b>${E(-o.tot)}</b> gekostet – ${E(o.save)} (${P(o.save/(o.umw||pay||1))}) haben Staat und Sozialversicherung mitgetragen, weil der Beitrag vor Steuer und SV abgezogen wird.`
+      :/Jobrad/.test(n)?`Raten gesamt ${E(pay)} in ${o.c} ${o.c===1?'Monat':'Monaten'}, netto gekostet <b>${E(-o.tot)}</b> – gespart: ${E(o.save)} Steuer und SV durch die Entgeltumwandlung.`
+      :`Gesamt ${o.tot<0?'gekostet':'erhalten'}: <b>${E(Math.abs(o.tot))}</b> netto in ${o.c} ${o.c===1?'Monat':'Monaten'}.`;
+    return`<div class="note"><b>${n}:</b> ${txt}</div>`}).join('');
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">${bt('Brutto')} Rentenpunkte entstehen aus deinem rentenversicherungspflichtigen Brutto im Verhältnis zum Durchschnittsentgelt aller Versicherten (2023/2024 endgültig, 2025/2026 vorläufig).</p>
+  ${rows?`<div class="cards">${card('Rentenpunkte erfasst','',tot.toLocaleString('de-DE',{maximumFractionDigits:2}),`≈ ${E(tot*RENTENWERT)} Monatsrente (brutto)`,`Mit dem aktuellen Rentenwert von ${eur.format(RENTENWERT)} je Punkt (seit 1.7.2026). Nur die Jahre mit hochgeladenen Abrechnungen.`)}
+  ${card('Punkte pro Jahr','',(totP/Object.keys(yl).length).toLocaleString('de-DE',{maximumFractionDigits:2}),`≈ ${E(totP/Object.keys(yl).length*RENTENWERT)} Rente je Arbeitsjahr`,'1,0 Punkte = genau Durchschnittsverdienst. Jedes Jahr mit diesem Einkommen erhöht deine spätere Monatsrente um diesen Betrag (heutiger Wert, vor Steuer und Krankenversicherung).')}</div>
+  <div class="scroll" style="margin-top:12px"><table><thead><tr><th>Jahr</th><th>RV-Brutto</th><th>Ø-Entgelt</th><th>Punkte</th><th>hochger.</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="hint" style="margin-top:8px">Grobe Schätzung. Maßgeblich ist deine Renteninformation der Deutschen Rentenversicherung. Zeiten vor deinen Abrechnungen (Ausbildung, Studium, frühere Jobs) fehlen hier.</p>`:'<p class="hint">Keine Jahreswerte in den Abrechnungen gefunden.</p>'}
+  <h3>Bilanz: Betriebsrente, Jobrad & Co.</h3>
+  <p class="hint" style="margin-top:-4px">Über alle hochgeladenen Abrechnungen summiert. ${bt('Netto')} = was es dich wirklich gekostet hat.</p>
+  ${gh||'<p class="hint">Nichts gefunden.</p>'}`;
+}
+
+/* 7: Kaufkraft */
+function tKaufkraft(el,ks){
+  const ref=VPI[VPI_LAST];const real=ks.map(k=>{const v=vpi(k);return v?data[k]*ref/v:null});
+  const roll=arr=>arr.map((_,i)=>{if(i<11)return null;const w=arr.slice(i-11,i+1);return w.some(x=>x==null)?null:sum(w)/12});
+  const nom=ks.map(k=>data[k]);const rn=roll(nom),rr=roll(real);
+  chart('cK',{xs:ks,xl:i=>lab(ks[i]),yf:kf,zero:false,sel:null,onSel:()=>{},series:[{c:'var(--y5)',w:2,pts:rn},{c:'var(--y0)',w:3,pts:rr}]});
+  const i1=rn.length-1,i0=rn.findIndex(v=>v!=null);let cards='';
+  if(i0>=0&&i0<i1){const gn=rn[i1]/rn[i0]-1,gr=rr[i1]/rr[i0]-1,inf=vpi(ks[i1])/vpi(ks[i0])-1;
+    cards=`<div class="cards">${card('Nominal',bt(vN()),pct.format(gn),`Ø ${E(rn[i0])} → ${E(rn[i1])}`,'Wie viel mehr Geld du bekommst – ohne Preissteigerung.')}${card('Preise',  '',pct.format(inf),`Verbraucherpreise im selben Zeitraum`,'Inflation laut Verbraucherpreisindex (Destatis).')}${card('Real (Kaufkraft)',bt(vN()),pct.format(gr),gr>=0?'du kannst dir mehr leisten':'du kannst dir weniger leisten','Dein Plus nach Abzug der Inflation – das, was sich im Alltag wirklich bemerkbar macht.')}</div>`}
+  el.innerHTML=`${vInfo()}${cards}
+  <div class="legend2" style="margin-top:14px"><span><i style="background:var(--y5)"></i>Nominal (Ø 12 Monate)</span><span><i style="background:var(--y0)"></i>Real in Preisen von ${esc(labLong(VPI_LAST))}</span></div>
+  <div class="fig"><svg id="cK" role="img" aria-label="Kaufkraft"></svg></div>
+  <p class="hint">Gleitender 12-Monats-Durchschnitt, damit Sonderzahlungen das Bild nicht verzerren. Verbraucherpreisindex (2020 = 100, Destatis): 2023 und 2024 als Jahresdurchschnitt, ab 2025 monatlich, nach ${esc(labLong(VPI_LAST))} fortgeschrieben mit dem letzten bekannten Wert.</p>`;
+}
+
+/* 8 + 10: Ziele & Sparen */
+function tZiele(el,ks){
+  const L=idx(ks[ks.length-1]);const win=(a,b)=>ks.filter(k=>idx(k)>a&&idx(k)<=b).map(k=>data[k]);
+  const w1=win(L-12,L),w0=win(L-24,L-12);const a1=w1.length?sum(w1)/w1.length:0,a0=w0.length?sum(w0)/w0.length:0;
+  const g=a0&&w0.length>=10?a1/a0-1:null;
+  let goal='';
+  if(opts.goal>0){const p=Math.min(1,a1/opts.goal);let when='';
+    if(a1>=opts.goal)when='Ziel erreicht!';
+    else if(g>0.001){const yrs=Math.log(opts.goal/a1)/Math.log(1+g);when=`Beim bisherigen Tempo (${pct.format(g)} pro Jahr) in etwa ${yrs<1?Math.ceil(yrs*12)+' Monaten':yrs.toLocaleString('de-DE',{maximumFractionDigits:1})+' Jahren'} – also um ${esc(labLong(key(L+Math.ceil(yrs*12))))}.`}
+    else when='Beim bisherigen Tempo nicht absehbar.';
+    goal=`<div class="yr" style="grid-template-columns:minmax(0,1fr) auto"><div><div class="bar" style="height:18px"><span style="width:${(p*100).toFixed(1)}%"></span></div><small>${P(p)} erreicht · fehlen noch ${E(Math.max(0,opts.goal-a1))} im Monat (${E(Math.max(0,opts.goal-a1)*12)} im Jahr)</small></div><span class="v">${E(a1)} / ${E(opts.goal)}</span></div><p style="margin:8px 0 0">${when}</p>`}
+  const q=(opts.sq||0)/100,ret=(opts.ret||0)/100,mon=a1*q,i=ret/12;
+  const fv=n=>i?mon*((1+i)**(n*12)-1)/i:mon*n*12;
+  const rows=[1,5,10,20,30].map(n=>`<tr><td>${n} ${n>1?'Jahre':'Jahr'}</td><td>${E(mon*12*n)}</td><td>${E(fv(n))}</td><td class="up">+${E(fv(n)-mon*12*n)}</td></tr>`).join('');
+  el.innerHTML=`${vInfo()}<h3 style="margin-top:0">Gehaltsziel</h3>
+  <div class="prev"><div class="wt">${oIn('goal','Ziel: Ø pro Monat €',fh(opts.goal||0),0,100000)}<span></span><span></span></div>
+  ${opts.goal>0?goal:'<p class="hint" style="margin:0">Trage ein Ziel für deinen Monatsdurchschnitt ein, z. B. 4.000 €.</p>'}</div>
+  <p class="hint">Verglichen wird dein Ø der letzten 12 Monate (${E(a1)}), inklusive Sonderzahlungen.</p>
+  <h3>Sparpotenzial</h3>
+  <div class="prev"><div class="wt">${oIn('sq','Sparquote %',fh(opts.sq),0,100)}${oIn('ret','Rendite % p. a.',fh(opts.ret),-10,20)}<span></span></div>
+  <p style="margin:6px 0 0">${fh(opts.sq)} % von Ø ${E(a1)} = <b>${E(mon)}</b> im Monat.</p></div>
+  <div class="scroll" style="margin-top:10px"><table><thead><tr><th>Zeitraum</th><th>Eingezahlt</th><th>Mit ${fh(opts.ret)} %</th><th>Zinsen/Erträge</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <p class="hint" style="margin-top:8px">Beispielrechnung mit gleichbleibender monatlicher Sparrate und monatlicher Verzinsung, ohne Steuern, Kosten und Inflation. Keine Anlageberatung – Renditen sind nicht garantiert.</p>`;
+}
+
+/* 11: Auffälligkeiten */
+function tCheck(el,ks){
+  const F=[];const S=Object.keys(slips).filter(k=>KEY.test(k)).sort();
+  for(let j=0;j<S.length;j++){const s=slips[S[j]],pv=j?slips[S[j-1]]:null,mo=labLong(S[j]);
+    const diff=(s.brutto||0)-(s.tax||0)-(s.svTotal||0)-(s.netto||0);if(Math.abs(diff)>1)F.push([S[j],'warn',`${mo}: Brutto − Steuer − SV ergibt nicht genau das Netto (Abweichung ${E(diff)}). Abrechnung prüfen oder erneut hochladen.`]);
+    if(!pv||idx(S[j])-idx(S[j-1])>2)continue;
+    const reg=i=>!i.free&&i.st!=='02'&&i.sv!=='5';
+    const cur={},old={};for(const i of(s.items||[]).filter(reg))cur[i.name]=(cur[i.name]||0)+i.amount;for(const i of(pv.items||[]).filter(reg))old[i.name]=(old[i.name]||0)+i.amount;
+    for(const n in old)if(cur[n]==null)F.push([S[j],'info',`${mo}: „${n}“ fehlt (Vormonat ${E(old[n])}).`]);
+    for(const n in cur){if(old[n]==null)F.push([S[j],'info',`${mo}: neue Lohnart „${n}“ (${E(cur[n])}).`]);else{const d=cur[n]-old[n];if(Math.abs(d)>20&&Math.abs(d/old[n])>0.02)F.push([S[j],d>0?'up':'down',`${mo}: „${n}“ ${d>0?'gestiegen':'gesunken'} um ${E(Math.abs(d))} (${pct.format(d/old[n])}).`])}}
+    const an=new Set((s.after||[]).map(a=>a.name.replace(/\s*(JANUAR|FEBRUAR|MÄRZ|APRIL|MAI|JUNI|JULI|AUGUST|SEPTEMBER|OKTOBER|NOVEMBER|DEZEMBER)\s*\d{4}.*$/i,''))),ao=new Set((pv.after||[]).map(a=>a.name.replace(/\s*(JANUAR|FEBRUAR|MÄRZ|APRIL|MAI|JUNI|JULI|AUGUST|SEPTEMBER|OKTOBER|NOVEMBER|DEZEMBER)\s*\d{4}.*$/i,'')));
+    for(const n of an)if(!ao.has(n))F.push([S[j],'info',`${mo}: neuer Abzug nach Netto „${n}“.`]);
+    for(const n of ao)if(!an.has(n))F.push([S[j],'info',`${mo}: Abzug „${n}“ ist weggefallen.`]);
+    const a=s.info||{},b=pv.info||{};
+    if(a.stkl&&b.stkl&&a.stkl!==b.stkl)F.push([S[j],'warn',`${mo}: Steuerklasse geändert (${b.stkl} → ${a.stkl}).`]);
+    if(a.kkZusatz!=null&&b.kkZusatz!=null&&a.kkZusatz!==b.kkZusatz)F.push([S[j],'info',`${mo}: Zusatzbeitrag der Krankenkasse ${String(b.kkZusatz).replace('.',',')} % → ${String(a.kkZusatz).replace('.',',')} %.`]);
+    if(a.tarif&&b.tarif&&a.tarif!==b.tarif)F.push([S[j],'up',`${mo}: Entgeltgruppe ${b.tarif} → ${a.tarif}.`]);
+  }
+  // Monatswerte vs. gleicher Monat Vorjahr
+  for(const k of ks){const pk=key(idx(k)-12);if(data[pk]==null)continue;const r=data[k]/data[pk]-1;if(Math.abs(r)>0.25)F.push([k,r>0?'up':'down',`${labLong(k)}: ${pct.format(r)} gegenüber ${labLong(pk)} (${E(data[pk])} → ${E(data[k])}) – ${r>0?'z. B. Sonderzahlung, Nachzahlung oder Zulage verschoben':'z. B. Sonderzahlung in anderem Monat, Abzug oder Krankengeld'}.`])}
+  F.sort((a,b)=>a[0]<b[0]?1:-1);
+  const ic={warn:['var(--neg)','Prüfen'],info:['var(--y5)','Info'],up:['var(--acc)','Mehr'],down:['var(--y1)','Weniger']};
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Automatisch erkannte Änderungen und Abweichungen – nützlich, um Fehler in der Abrechnung zu entdecken. ${S.length<2?'Mit mehr hochgeladenen Abrechnungen werden auch Lohnarten verglichen.':''}</p>
+  ${F.length?`<div class="poslist">${F.slice(0,40).map(([k,t,x])=>`<div class="pos"><div class="pt"><span class="pn"><span class="bt" style="margin:0 8px 0 0;background:color-mix(in srgb,${ic[t][0]} 22%,transparent);color:var(--ink)">${ic[t][1]}</span>${esc(x)}</span></div></div>`).join('')}</div>${F.length>40?`<p class="hint">… und ${F.length-40} weitere.</p>`:''}`:'<div class="note">Keine Auffälligkeiten gefunden.</div>'}`;
 }
 
 /* ---------- Sperrbildschirm ---------- */
