@@ -68,6 +68,7 @@ button.danger{border-color:var(--neg);color:var(--neg);background:transparent}
 .bt.n{background:var(--soft);color:var(--acc)}.bt.b{background:color-mix(in srgb,var(--y5) 25%,transparent);color:var(--ink)}
 .hint .bt,.sub .bt{margin:0 6px 0 0}
 .card .x{display:block;font-size:13px;color:var(--mut);margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);line-height:1.45}
+.bnt td:first-child{white-space:normal;min-width:7em}@media(max-width:600px){.bnt{font-size:13px}.bnt td,.bnt th{padding:6px 3px}}
 h3{font:600 16px Inter,system-ui,sans-serif;margin:26px 0 10px}
 .up-box{margin-top:16px;display:grid;gap:10px}
 .prev{background:var(--card);border-radius:10px;padding:16px;display:grid;gap:10px}
@@ -228,8 +229,9 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.9.0';
+const VERSION='1.10.0';
 const CHANGELOG=[
+  ['1.10.0','27.11.2026','Neuer Brutto-Netto-Rechner: Brutto und Erhöhung frei einstellbar, Jobrad und Betriebsrente einzeln abwählbar, mit Vergleich und Netto-Kosten der Extras.'],
   ['1.9.0','27.11.2026','Neuer Reiter Rentenrechner: fiktive Hochrechnung von gesetzlicher Rente (brutto und netto), Betriebsrente und privatem Sparen bis zum Rentenbeginn, mit Rentenlücke – alles in heutiger Kaufkraft.'],
   ['1.8.3','27.11.2026','Fix: Bei mehreren Sonderzahlungen in einem Monat (z. B. Sonderzahlung + T-ZUG) wurden Steuer und SV bei älteren Uploads einer Zahlung allein zugeordnet.'],
   ['1.8.2','27.11.2026','Zuschläge nach Art getrennt (Rufbereitschaft, Nacht, Sonn-/Feiertag, Überstunden) mit Jahresübersicht und Einheiten. Steuerfreier Anteil wird nicht mehr doppelt gezählt.'],
@@ -248,7 +250,7 @@ const CHANGELOG=[
   ['1.1.0','24.11.2026','Installierbar als App (PWA), funktioniert offline. Versionsanzeige mit Änderungsverlauf. Backup als Datei speichern und laden.'],
   ['1.0.0','24.11.2026','Erste Version: Monate eintragen, Verlauf mit 12-Monats-Schnitt, Kennzahlen, Jahresübersicht, Import der Excel-Werte.']
 ];
-let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10,km:0,ho:0,wm:0,goal:0,sq:15,ret:5,raise:3,raiseFrom:'',rGj:0,rRa:67,rPre:0,rPY:0,rRw:2,rInf:2,rBav:null,rBavR:2,rNeed:80};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
+let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10,km:0,ho:0,wm:0,goal:0,sq:15,ret:5,raise:3,raiseFrom:'',rGj:0,rRa:67,rPre:0,rPY:0,rRw:2,rInf:2,rBav:null,rBavR:2,rNeed:80,bnGross:0,bnRaise:0,bnJob:true,bnBav:true,bnJobAmt:null,bnBavAmt:null};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
 
 const idx=k=>{const[y,m]=k.split('-').map(Number);return y*12+m-1};
 const key=i=>Math.floor(i/12)+'-'+String(i%12+1).padStart(2,'0');
@@ -618,11 +620,11 @@ function chart(id,o){charts[id]=()=>lineChart(id,o)}
 
 function analysis(){
   const ks=sorted();const band=$('anlBand');band.hidden=ks.length<2;if(band.hidden){$('anl').innerHTML='';return}
-  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],['brutto','Brutto & Abgaben'],['steuer','Steuer & Netto'],['extras','Zuschläge & Sonderzahlungen'],['vorsorge','Rente & Vorsorge'],['rechner','Rentenrechner'],['kaufkraft','Kaufkraft'],['ziele','Ziele & Sparen'],['check','Auffälligkeiten']];
+  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],['brutto','Brutto & Abgaben'],['bn','Brutto-Netto-Rechner'],['steuer','Steuer & Netto'],['extras','Zuschläge & Sonderzahlungen'],['vorsorge','Rente & Vorsorge'],['rechner','Rentenrechner'],['kaufkraft','Kaufkraft'],['ziele','Ziele & Sparen'],['check','Auffälligkeiten']];
   if(!tabs.some(t=>t[0]===aTab))aTab='jahre';
   $('anlTabs').innerHTML=tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${k===aTab}" data-t="${k}">${t}</button>`).join('');
   for(const k in charts)delete charts[k];
-  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto,steuer:tSteuer,extras:tExtras,vorsorge:tVorsorge,rechner:tRechner,kaufkraft:tKaufkraft,ziele:tZiele,check:tCheck})[aTab]($('anl'),ks);
+  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto,bn:tBN,steuer:tSteuer,extras:tExtras,vorsorge:tVorsorge,rechner:tRechner,kaufkraft:tKaufkraft,ziele:tZiele,check:tCheck})[aTab]($('anl'),ks);
   for(const f of Object.values(charts))f();
 }
 $('anlTabs').addEventListener('click',e=>{const b=e.target.closest('button[data-t]');if(!b)return;aTab=b.dataset.t;analysis()});
@@ -828,7 +830,7 @@ function groupsOf(s){
 }
 $('anl').addEventListener('change',e=>{
   const t=e.target;const k=t.dataset&&t.dataset.o;if(!k)return;
-  let v;if(t.type==='month'){v=KEY.test(t.value)?t.value:''}else{v=parse(t.value);const lo=t.dataset.min===''?-Infinity:+t.dataset.min,hi=t.dataset.max===''?Infinity:+t.dataset.max;
+  let v;if(t.type==='checkbox'){v=t.checked}else if(t.type==='month'){v=KEY.test(t.value)?t.value:''}else{v=parse(t.value);const lo=t.dataset.min===''?-Infinity:+t.dataset.min,hi=t.dataset.max===''?Infinity:+t.dataset.max;
     if(isNaN(v)||v<lo||v>hi){toast(`Bitte einen Wert zwischen ${lo} und ${hi} eingeben`);return}}
   opts[k]=v;lsSave();analysis();
 });
@@ -1002,6 +1004,57 @@ function tRechner(el,ks){
   <h3>Entwicklung deiner Rentenpunkte</h3>
   <div class="scroll"><table><thead><tr><th>Alter</th><th>Jahr</th><th>Punkte</th><th>Rente heute brutto</th></tr></thead><tbody>${ms.map(([a,y,pp])=>`<tr><td>${a}</td><td>${Math.floor(y)}</td><td>${fh(Math.round(pp*100)/100)}</td><td>${E(pp*RENTENWERT)}</td></tr>`).join('')}</tbody></table></div>
   <p class="hint" style="margin-top:8px">Annahmen: gleichbleibende Punkte pro Jahr (dein Gehalt wächst wie der Durchschnitt aller Versicherten), keine Abschläge, keine Zeiten ohne Beiträge, heutiges Steuer- und Beitragsrecht. Rentenwert heute ${eur.format(RENTENWERT)} (seit 1.7.2026). Verbindlich ist nur deine Renteninformation der Deutschen Rentenversicherung.</p>`;
+}
+
+/* Brutto-Netto-Rechner */
+function tBN(el){
+  const s=lastSlip();const m=s&&netModel(s);if(!m){el.innerHTML=needSlips('den Brutto-Netto-Rechner');return}
+  const it=alloc(s);
+  const gross0=sum(it.filter(i=>i.kind==='lfd'&&i.amount>0&&!/sachbez/i.test(i.name)&&!/rufber|bereitsch|zuschl|überstund|mehrarb/i.test(i.name)).map(i=>i.amount));
+  const tarif0=sum(it.filter(i=>i.kind==='lfd'&&i.amount>0&&/grundent|grundgeh|tarifent|leistungszul|monatsgeh/i.test(i.name)).map(i=>i.amount))||gross0;
+  const jUmw0=-sum(it.filter(i=>i.kind==='umw'&&/jobrad|leasing|fahrrad|bike/i.test(i.name)).map(i=>i.amount));
+  const jSach0=sum(it.filter(i=>i.kind==='lfd'&&/jobrad|fahrrad|bike/i.test(i.name)&&/sachbez/i.test(i.name)).map(i=>i.amount));
+  const bav0=-sum(it.filter(i=>i.kind==='umw'&&/\bbav\b|betriebl|pensionsk|direktvers|altersvers/i.test(i.name)).map(i=>i.amount));
+  const gross=opts.bnGross>0?opts.bnGross:gross0,tarif=opts.bnGross>0?gross*(tarif0/(gross0||1)):tarif0;
+  const jUmw=opts.bnJobAmt!=null&&opts.bnJobAmt!==''?opts.bnJobAmt:jUmw0,bav=opts.bnBavAmt!=null&&opts.bnBavAmt!==''?opts.bnBavAmt:bav0;
+  const useJ=opts.bnJob!==false&&jUmw>0,useB=opts.bnBav!==false&&bav>0;
+  const BK=5812.5,BR=8450,r=m.r;
+  const calc=(g,J=useJ,Bv=useB)=>{const sach=J?jSach0:0,umw=(J?jUmw:0)+(Bv?bav:0),base=g+sach-umw;
+    const kv=r.kv*Math.min(base,BK),pv=r.pv*Math.min(base,BK),rv=r.rv*Math.min(base,BR),av=r.av*Math.min(base,BR),tax=m.tax(base);
+    const ges=g+sach,netto=ges-tax-kv-pv-rv-av,ausz=netto-(J?jUmw+sach:0)-(Bv?bav:0);
+    return{g,sach,ges,base,tax,kv,pv,rv,av,netto,ausz}};
+  const ra=(opts.bnRaise||0)/100,A=calc(gross),B=calc(gross+tarif*ra),hasR=ra!==0;
+  const row=(l,k,sign,cls,sub)=>{const f=v=>(sign<0&&v?'−':'')+E(Math.abs(v));const d=B[k]-A[k];
+    return`<tr class="${cls||''}"><td>${l}${sub?`<br><small style="color:var(--mut)">${sub}</small>`:''}</td><td>${f(A[k])}</td>${hasR?`<td>${f(B[k])}</td><td class="${Math.abs(d)<.005?'':(sign<0?d>0?'dn':'up':d>0?'up':'dn')}">${Math.abs(d)<.005?'–':(d>0?'+':'−')+E(Math.abs(d))}</td>`:''}</tr>`};
+  const ded=(l,v)=>`<tr><td>${l}</td><td>−${E(v)}</td>${hasR?`<td>−${E(v)}</td><td>–</td>`:''}</tr>`;
+  // Effekt der Extras
+  const saveJ=useJ?calc(gross,false,useB):null;
+  const saveB=useB?calc(gross,useJ,false):null;
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Monatlicher Rechner für dein <b>laufendes</b> Gehalt (ohne Sonderzahlungen und Zuschläge). Steuerklasse, Krankenkasse und Beitragssätze aus deiner Abrechnung ${esc(labLong(s.month))}, Lohnsteuer nach Tarif 2026 – kalibriert auf deine tatsächliche Lohnsteuer. Ohne Gewähr.</p>
+  <div class="prev"><b>Eingaben</b>
+   <div class="wt">${oIn('bnGross','Brutto €/Monat',fh(Math.round(gross*100)/100),0,100000)}${oIn('bnRaise','Erhöhung %',fh(opts.bnRaise||0),-50,100)}<span></span></div>
+   <div class="choice" style="margin-top:4px">
+    <label><input type="checkbox" data-o="bnJob" ${opts.bnJob!==false?'checked':''} ${jUmw>0?'':'disabled'}><span>Jobrad<br><small style="color:var(--mut)">${jUmw>0?`Leasingrate ${E(jUmw)} per Entgeltumwandlung + geldwerter Vorteil ${E(jSach0)}`:'nicht in deiner Abrechnung'}</small></span></label>
+    <label><input type="checkbox" data-o="bnBav" ${opts.bnBav!==false?'checked':''} ${bav>0?'':'disabled'}><span>Betriebliche Altersvorsorge (bAV)<br><small style="color:var(--mut)">${bav>0?`${E(bav)} Gehaltsumwandlung pro Monat`:'nicht in deiner Abrechnung'}</small></span></label>
+   </div>
+   <div class="wt">${oIn('bnJobAmt','Jobrad-Rate €',fh(jUmw),0,1000)}${oIn('bnBavAmt','bAV-Beitrag €',fh(bav),0,5000)}<span></span></div>
+   <p class="hint" style="margin:0">Brutto ist mit deinem aktuellen laufenden Gehalt vorbelegt (${esc(it.filter(i=>i.kind==='lfd'&&i.amount>0&&!/sachbez|rufber|bereitsch|zuschl|überstund|mehrarb/i.test(i.name)).map(i=>i.name).join(' + '))}). Die Erhöhung wirkt auf das Tarifentgelt (${E(tarif)}).</p></div>
+  <p class="lead2" style="margin-top:18px">${bt('Brutto')} ${E(A.ges)} → ${bt('Netto')} <b>${E(A.netto)}</b> → Auszahlung <b>${E(A.ausz)}</b>${hasR?`<br>Mit ${fh(opts.bnRaise)} % Erhöhung: Auszahlung <b>${E(B.ausz)}</b> (${B.ausz>=A.ausz?'+':'−'}${E(Math.abs(B.ausz-A.ausz))})`:''}</p>
+  <div class="scroll"><table class="bnt"><thead><tr><th></th><th>${hasR?'Heute':'Monat'}</th>${hasR?`<th>+${fh(opts.bnRaise)} %</th><th>Diff.</th>`:''}</tr></thead><tbody>
+   ${row('Bruttogehalt','g',1)}
+   ${useJ&&jSach0?row('+ Jobrad Sachbezug','sach',1):''}
+   ${row('<b>Gesamtbrutto</b>','ges',1,'',useJ||useB?`steuer- und SV-pflichtig: ${E(A.base)}${hasR?' / '+E(B.base):''}`:'')}
+   ${row('Lohnsteuer','tax',-1)}
+   ${row('Krankenvers.','kv',-1)}${row('Pflegevers.','pv',-1)}${row('Rentenvers.','rv',-1)}${row('Arbeitslosenv.','av',-1)}
+   ${row('<b>Netto</b>','netto',1)}
+   ${useJ?ded('Jobrad-Leasingrate',jUmw)+(jSach0?ded('Einbehalt Sachbezug',jSach0):''):''}
+   ${useB?ded('bAV-Beitrag',bav):''}
+   ${row('<b>Auszahlung</b>','ausz',1)}
+  </tbody></table></div>
+  ${useJ||useB?`<h3>Was dich die Extras netto kosten</h3>
+   ${useJ?`<div class="note"><b>Jobrad:</b> Ohne Jobrad wäre deine Auszahlung ${E(saveJ.ausz)} – das Rad kostet dich also netto <b>${E(saveJ.ausz-A.ausz)}</b> im Monat statt der Rate von ${E(jUmw)}. Ersparnis durch Steuer und SV: ${E(jUmw-(saveJ.ausz-A.ausz))}.</div>`:''}
+   ${useB?`<div class="note"><b>Betriebsrente:</b> Ohne bAV wäre deine Auszahlung ${E(saveB.ausz)} – ${E(bav)} Beitrag kosten dich netto nur <b>${E(saveB.ausz-A.ausz)}</b>. ${E(bav-(saveB.ausz-A.ausz))} tragen Staat und Sozialversicherung. Hinweis: Weniger Rentenbeitrag heißt auch etwas weniger gesetzliche Rente.</div>`:''}`:''}
+  <p class="hint">Kantine, Vesper und andere Abzüge nach dem Netto sind nicht enthalten. Kirchensteuer und Soli wie in deiner Abrechnung.</p>`;
 }
 
 /* 7: Kaufkraft */
