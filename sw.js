@@ -1,5 +1,5 @@
 // Version hier UND in index.html (VERSION) erhöhen, damit Geräte das Update bekommen.
-const VERSION = '1.13.1';
+const VERSION = '1.15.0';
 const CACHE = 'gehalt-' + VERSION;
 const ASSETS = [
   './',
@@ -13,7 +13,8 @@ const ASSETS = [
   './slip.js',
   './lib/pdf.min.js',
   './lib/pdf.worker.min.js',
-  './lib/jszip.min.js'
+  './lib/jszip.min.js',
+  './werte.json'
 ];
 
 self.addEventListener('install', e => {
@@ -49,6 +50,12 @@ self.addEventListener('fetch', e => {
     return;
   }
   if (url.origin !== location.origin) return;
+  // werte.json: immer zuerst aus dem Netz (neue Tarifwerte), offline aus dem Cache
+  if (url.pathname.endsWith('/werte.json')) {
+    e.respondWith(fetch(req, { cache: 'no-store' }).then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put('./werte.json', copy)); } return res; })
+      .catch(() => caches.match('./werte.json')));
+    return;
+  }
   // App-Dateien: Cache zuerst, offline lauffähig
   e.respondWith(
     caches.match(req, { ignoreSearch: true }).then(hit => hit ||

@@ -240,8 +240,10 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.13.1';
+const VERSION='1.15.0';
 const CHANGELOG=[
+  ['1.15.0','27.11.2026','Tarif- und Rechenwerte (ERA-Tabelle, Tariferhöhungen, T-ZUG B, Rentenwert, Inflation, Krankenkassen, Verdienststatistik) kommen aus der Datei werte.json und werden monatlich automatisch aktualisiert. Hinweis bei neuen Werten.'],
+  ['1.14.0','27.11.2026','Neue Reiter: Tarif-Check (Sonderzahlungen gegen Tarif BW, T-ZUG A Geld oder Tage, Wert eines Urlaubstags, Überstunden), Planung (Miete, Kreditrahmen, 50/30/20-Budget, Gehaltsverhandlung) und Daten (Vollständigkeit der PDFs, Stundenlohn-Verlauf).'],
   ['1.13.1','27.11.2026','Fix: Updates werden zuverlässig geladen (Service Worker umgeht den Browser-Cache).'],
   ['1.13.0','27.11.2026','Neue Reiter: Abgaben (Arbeitgeberkosten, Tag der Abgabenfreiheit, wohin die Abgaben gehen, kalte Progression), Vergleiche (Betriebsrente vs. ETF, Jobrad vs. Kauf, Rufbereitschaft pro Stunde, Erhöhungen vs. Tarif) und Prognosen (Jahresende, Lebensverdienst).'],
   ['1.12.1','27.11.2026','Erklärungen zu allen Eingabefeldern: auf das ? tippen.'],
@@ -267,7 +269,7 @@ const CHANGELOG=[
   ['1.1.0','24.11.2026','Installierbar als App (PWA), funktioniert offline. Versionsanzeige mit Änderungsverlauf. Backup als Datei speichern und laden.'],
   ['1.0.0','24.11.2026','Erste Version: Monate eintragen, Verlauf mit 12-Monats-Schnitt, Kennzahlen, Jahresübersicht, Import der Excel-Werte.']
 ];
-let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10,km:0,ho:0,wm:0,goal:0,sq:15,ret:5,raise:3,raiseFrom:'',rGj:0,rRa:67,rPre:0,rPY:0,rRw:2,rInf:2,rBav:null,rBavR:2,rNeed:80,bnGross:0,bnRaise:0,bnJob:true,bnBav:true,bnJobAmt:null,bnBavAmt:null,etfRate:0,etfStart:0,etfR:6,etfDyn:0,etfPayR:3,etfYrs:25,rPriv:false,tzH:30,pB:0,kkT:2.18,prc:1000,bvAG:15,bvTax:20,bvYrs:30,jbP:0,jbM:36,jbU:18,jbR:10,rbH:16,lvG:3};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
+let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10,km:0,ho:0,wm:0,goal:0,sq:15,ret:5,raise:3,raiseFrom:'',rGj:0,rRa:67,rPre:0,rPY:0,rRw:2,rInf:2,rBav:null,rBavR:2,rNeed:80,bnGross:0,bnRaise:0,bnJob:true,bnBav:true,bnJobAmt:null,bnBavAmt:null,etfRate:0,etfStart:0,etfR:6,etfDyn:0,etfPayR:3,etfYrs:25,rPriv:false,tzH:30,pB:0,kkT:2.18,prc:1000,bvAG:15,bvTax:20,bvYrs:30,jbP:0,jbM:36,jbU:18,jbR:10,rbH:16,lvG:3,ueZ:25,kq:35,kz:3.5,kt:2,rkz:6.5,rkn:60,gvN:300};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
 
 const idx=k=>{const[y,m]=k.split('-').map(Number);return y*12+m-1};
 const key=i=>Math.floor(i/12)+'-'+String(i%12+1).padStart(2,'0');
@@ -635,6 +637,13 @@ const HELP={
  jbR:['Rabatt beim Kauf','Welchen Rabatt du beim normalen Kauf im Laden bekommen würdest.'],
  rbH:['Stunden je Einheit','Wie viele Stunden eine abgerechnete Rufbereitschafts-Einheit (Tag) dauert, z. B. 16 Stunden an einem Werktag nach Feierabend oder 24 Stunden am Wochenende.'],
  lvG:['Gehaltssteigerung','Um wie viel Prozent dein Einkommen pro Jahr im Schnitt steigt – durch Tariferhöhungen und Karriere. Tariferhöhungen lagen zuletzt bei 2–5 % pro Jahr.'],
+ ueZ:['Mehrarbeitszuschlag','Zuschlag für bezahlte Überstunden in Prozent des Stundenentgelts. In der Metall- und Elektroindustrie meist 25 %, für bestimmte Stunden bis 50 %.'],
+ kq:['Rate vom Netto','Welcher Anteil deines monatlichen Nettos für die Kreditrate draufgehen darf. Banken akzeptieren oft 35–40 %, entspannter sind 25–30 %.'],
+ kz:['Bauzins','Sollzins einer Baufinanzierung pro Jahr, z. B. mit 10 Jahren Zinsbindung. Aktuelle Konditionen bei Banken oder Vergleichsportalen prüfen.'],
+ kt:['Tilgung','Wie viel Prozent der Kreditsumme du im ersten Jahr zurückzahlst. 2 % ist üblich, mehr verkürzt die Laufzeit deutlich.'],
+ rkz:['Ratenkredit-Zins','Effektiver Jahreszins eines Konsumkredits, z. B. für ein Auto. Je nach Bonität etwa 4–10 %.'],
+ rkn:['Laufzeit','Wie viele Monate der Ratenkredit läuft.'],
+ gvN:['Netto-Ziel','Wie viel mehr du jeden Monat netto auf dem Konto haben möchtest. Die App rechnet aus, wie viel Brutto du dafür verhandeln musst.'],
  prc:['Preis','Was etwas kostet, das du dir kaufen möchtest. Die App rechnet es in Arbeitszeit um.']
 };
 const infoBtn=k=>HELP[k]?`<button type="button" class="info" data-hk="${k}" aria-label="Erklärung: ${esc(HELP[k][0])}">?</button>`:'';
@@ -643,6 +652,38 @@ document.addEventListener('click',e=>{const b=e.target.closest('.info');if(b){e.
 $('hsClose').addEventListener('click',()=>{$('helpSheet').hidden=true});
 $('helpSheet').addEventListener('click',e=>{if(e.target.id==='helpSheet')$('helpSheet').hidden=true});
 document.addEventListener('keydown',e=>{if(e.key==='Escape')$('helpSheet').hidden=true});
+
+
+/* ---------- Tarif- und Rechenwerte aus werte.json (automatisch aktualisiert) ---------- */
+let WERTE=null;
+const num=v=>typeof v==='number'&&isFinite(v);
+function applyWerte(w){
+  if(!w||typeof w!=='object')return;
+  const e=w.era_bw?.grundentgelt;if(e&&typeof e==='object'){const o={};for(const[k,v]of Object.entries(e))if(/^EG \d{1,2}$/.test(k)&&num(v))o[k]=v;if(Object.keys(o).length)ERA_BW=o}
+  if(Array.isArray(w.tarif_schritte)){const t=w.tarif_schritte.filter(x=>KEY.test(x?.ab)&&num(x?.prozent)).map(x=>[x.ab,x.prozent]);if(t.length)TARIF_STEPS=t.sort((a,b)=>a[0]<b[0]?-1:1)}
+  if(w.tzug_b&&typeof w.tzug_b==='object'){const o={};for(const[k,v]of Object.entries(w.tzug_b))if(/^\d{4}$/.test(k)&&num(v))o[k]=v;TZUGB=Object.assign({},TZUGB,o)}
+  if(num(w.rentenwert?.wert))RENTENWERT=w.rentenwert.wert;
+  if(w.durchschnittsentgelt)for(const[k,v]of Object.entries(w.durchschnittsentgelt))if(/^\d{4}$/.test(k)&&num(v))DE[k]=v;
+  if(w.vpi?.jahre)for(const[k,v]of Object.entries(w.vpi.jahre))if(/^\d{4}$/.test(k)&&num(v))VPIY[k]=v;
+  if(w.vpi?.monate){for(const[k,v]of Object.entries(w.vpi.monate))if(KEY.test(k)&&num(v))VPI[k]=v;VPI_LAST=Object.keys(VPI).sort().pop()}
+  if(Array.isArray(w.krankenkassen)){const k=w.krankenkassen.filter(x=>typeof x?.name==='string'&&num(x?.zusatz)).map(x=>[x.name.slice(0,40),x.zusatz]);if(k.length)KKS=k}
+  if(Array.isArray(w.destatis_vollzeit?.perzentile)){const d=w.destatis_vollzeit.perzentile.filter(x=>num(x?.p)&&num(x?.euro)).map(x=>[x.p,x.euro]).sort((a,b)=>a[0]-b[0]);if(d.length>=3)DESTATIS25=d}
+  WERTE=w;
+}
+async function loadWerte(){
+  try{const r=await fetch('werte.json',{cache:'no-store'});if(!r.ok)return;const w=await r.json();applyWerte(w);
+    let seen=null;try{seen=localStorage.getItem('gehalt.werteStand')}catch(e){}
+    if(typeof w.stand==='string'&&seen&&seen!==w.stand){const m=(w.meldungen||[]).filter(x=>typeof x?.text==='string').sort((a,b)=>a.datum<b.datum?1:-1)[0];toast('Neue Tarif- und Rechenwerte'+(m?': '+m.text.slice(0,90):''))}
+    try{if(typeof w.stand==='string')localStorage.setItem('gehalt.werteStand',w.stand)}catch(e){}
+    if(dek)render();
+  }catch(e){}
+}
+function werteInfo(){
+  if(!WERTE)return'<p class="hint" style="margin:0 0 12px">Werte-Stand: eingebaut (Datei werte.json nicht erreichbar).</p>';
+  const ms=(WERTE.meldungen||[]).filter(x=>typeof x?.text==='string').sort((a,b)=>a.datum<b.datum?1:-1).slice(0,3);
+  const link=u=>typeof u==='string'&&/^https:\/\//.test(u)?` <a href="${esc(u)}" target="_blank" rel="noopener">Quelle</a>`:'';
+  return`<div class="note" style="margin-top:0"><b>Tarifwerte Stand ${esc(WERTE.stand||'')}</b> – werden monatlich automatisch aktualisiert.${ms.length?`<ul style="margin:8px 0 0;padding-left:18px">${ms.map(m=>`<li>${esc(m.datum||'')}: ${esc(m.text)}${link(m.quelle)}</li>`).join('')}</ul>`:''}</div>`;
+}
 
 /* ---------- Analyse ---------- */
 const YC=['var(--y0)','var(--y1)','var(--y2)','var(--y3)','var(--y4)','var(--y5)'];
@@ -689,11 +730,11 @@ function chart(id,o){charts[id]=()=>lineChart(id,o)}
 
 function analysis(){
   const ks=sorted();const band=$('anlBand');band.hidden=ks.length<2;if(band.hidden){$('anl').innerHTML='';return}
-  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],['brutto','Brutto & Abgaben'],['bn','Brutto-Netto-Rechner'],['steuer','Steuer & Netto'],['extras','Zuschläge & Sonderzahlungen'],['vorsorge','Rente & Vorsorge'],['rechner','Rentenrechner'],['abs','Absicherung'],['wasw','Was wäre wenn'],['ein','Einordnung'],['abg','Abgaben'],['vgl','Vergleiche'],['prog','Prognosen'],['kaufkraft','Kaufkraft'],['ziele','Ziele & Sparen'],['check','Auffälligkeiten']];
+  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],['brutto','Brutto & Abgaben'],['bn','Brutto-Netto-Rechner'],['steuer','Steuer & Netto'],['extras','Zuschläge & Sonderzahlungen'],['vorsorge','Rente & Vorsorge'],['rechner','Rentenrechner'],['abs','Absicherung'],['wasw','Was wäre wenn'],['ein','Einordnung'],['tarif','Tarif-Check'],['plan','Planung'],['abg','Abgaben'],['vgl','Vergleiche'],['prog','Prognosen'],['kaufkraft','Kaufkraft'],['ziele','Ziele & Sparen'],['check','Auffälligkeiten'],['daten','Daten']];
   if(!tabs.some(t=>t[0]===aTab))aTab='jahre';
   $('anlTabs').innerHTML=tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${k===aTab}" data-t="${k}">${t}</button>`).join('');
   for(const k in charts)delete charts[k];
-  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto,bn:tBN,steuer:tSteuer,extras:tExtras,vorsorge:tVorsorge,rechner:tRechner,abs:tAbsicherung,wasw:tWasWaere,ein:tEinordnung,abg:tAbgaben,vgl:tVergleiche,prog:tPrognosen,kaufkraft:tKaufkraft,ziele:tZiele,check:tCheck})[aTab]($('anl'),ks);
+  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto,bn:tBN,steuer:tSteuer,extras:tExtras,vorsorge:tVorsorge,rechner:tRechner,abs:tAbsicherung,wasw:tWasWaere,ein:tEinordnung,tarif:tTarif,plan:tPlanung,daten:tDaten,abg:tAbgaben,vgl:tVergleiche,prog:tPrognosen,kaufkraft:tKaufkraft,ziele:tZiele,check:tCheck})[aTab]($('anl'),ks);
   for(const f of Object.values(charts))f();
 }
 $('anlTabs').addEventListener('click',e=>{const b=e.target.closest('button[data-t]');if(!b)return;aTab=b.dataset.t;analysis()});
@@ -863,10 +904,10 @@ function tBrutto(el){
 }
 
 /* ---------- Erweiterte Analysen ---------- */
-const DE={2023:44732,2024:47085,2025:50493,2026:51944};const DE_V={2025:1,2026:1};
-const RENTENWERT=42.52;
-const VPI={'2025-01':120.3,'2025-02':120.8,'2025-03':121.2,'2025-04':121.7,'2025-05':121.8,'2025-06':121.8,'2025-07':122.2,'2025-08':122.3,'2025-09':122.6,'2025-10':123.0,'2025-11':122.7,'2025-12':122.7,'2026-01':122.8,'2026-02':123.1,'2026-03':124.5,'2026-04':125.2,'2026-05':125.0};
-const VPIY={2023:116.7,2024:119.3,2025:121.9};const VPI_LAST='2026-05';
+let DE={2023:44732,2024:47085,2025:50493,2026:51944};const DE_V={2025:1,2026:1};
+let RENTENWERT=42.52;
+let VPI={'2025-01':120.3,'2025-02':120.8,'2025-03':121.2,'2025-04':121.7,'2025-05':121.8,'2025-06':121.8,'2025-07':122.2,'2025-08':122.3,'2025-09':122.6,'2025-10':123.0,'2025-11':122.7,'2025-12':122.7,'2026-01':122.8,'2026-02':123.1,'2026-03':124.5,'2026-04':125.2,'2026-05':125.0};
+let VPIY={2023:116.7,2024:119.3,2025:121.9};let VPI_LAST='2026-05';
 const vpi=k=>VPI[k]??(k>VPI_LAST?VPI[VPI_LAST]:VPIY[k.slice(0,4)]??null);
 function estC(z){if(z<=12348)return 0;if(z<=17799){const y=(z-12348)/1e4;return(914.51*y+1400)*y}if(z<=69878){const q=(z-17799)/1e4;return(173.10*q+2397)*q+1034.87}if(z<=277825)return .42*z-11135.63;return .45*z-19470.38}
 function estInv(t){if(t<=0)return 12348;let lo=12348,hi=2e6;for(let i=0;i<80;i++){const m=(lo+hi)/2;if(estC(m)<t)lo=m;else hi=m}return(lo+hi)/2}
@@ -1149,9 +1190,9 @@ function tBN(el){
 }
 
 /* ---------- Absicherung, Was-wäre-wenn, Einordnung ---------- */
-const ERA_BW={'EG 10':4499.5,'EG 11':4796,'EG 12':5129,'EG 13':5462.5,'EG 14':5795.5,'EG 15':6129,'EG 16':6536.5,'EG 17':6906.5};
-const KKS=[['BKK firmus',2.18],['TUI BKK',2.5],['hkk',2.59],['Audi BKK',2.6],['Techniker (TK)',2.69],['Ø 2026 (amtlich)',2.9],['Barmer',3.29]];
-const DESTATIS25=[[10,33828],[30,44215],[50,54066],[80,80000],[90,100719],[99,219110]];
+let ERA_BW={'EG 10':4499.5,'EG 11':4796,'EG 12':5129,'EG 13':5462.5,'EG 14':5795.5,'EG 15':6129,'EG 16':6536.5,'EG 17':6906.5};
+let KKS=[['BKK firmus',2.18],['TUI BKK',2.5],['hkk',2.59],['Audi BKK',2.6],['Techniker (TK)',2.69],['Ø 2026 (amtlich)',2.9],['Barmer',3.29]];
+let DESTATIS25=[[10,33828],[30,44215],[50,54066],[80,80000],[90,100719],[99,219110]];
 function ctx(){
   const s=lastSlip();if(!s)return null;const m=netModel(s);if(!m)return null;
   const it=alloc(s);const S=Object.keys(slips).filter(k=>KEY.test(k)).sort();const L=idx(s.month);
@@ -1205,7 +1246,7 @@ function tWasWaere(el){
   // Entgeltgruppe
   const cur=(s.info?.tarif||'').replace(/^EG\s*/i,'EG ');const lzq=c.ge?c.lz/c.ge:0;const other=c.gross-c.ge-c.lz;
   const egRows=Object.entries(ERA_BW).map(([g,ge])=>{const gross=ge*(1+lzq)+other,x=c.calc(gross),d=x.ausz-A.ausz,db=gross-c.gross;const isC=g===cur;
-    return`<tr${isC?' style="font-weight:600"':''}><td>${g}${isC?' <span class="tag">du</span>':''}<br><small style="color:var(--mut)">${esc(eur0.format(ge))} Grund</small></td><td>${E(gross)}</td><td>${isC?'–':(db>=0?'+':'−')+E(Math.abs(db))}</td><td class="${isC?'':d>=0?'up':'dn'}">${isC?E(x.ausz):(d>=0?'+':'−')+E(Math.abs(d))}</td></tr>`}).join('');
+    return`<tr${isC?' style="font-weight:600"':''}><td>${esc(g)}${isC?' <span class="tag">du</span>':''}<br><small style="color:var(--mut)">${esc(eur0.format(ge))} Grund</small></td><td>${E(gross)}</td><td>${isC?'–':(db>=0?'+':'−')+E(Math.abs(db))}</td><td class="${isC?'':d>=0?'up':'dn'}">${isC?E(x.ausz):(d>=0?'+':'−')+E(Math.abs(d))}</td></tr>`}).join('');
   // Steuerklasse / Heirat
   let sk='<p class="hint" style="margin:0">Trage das monatliche Brutto deines Partners/deiner Partnerin ein.</p>';
   if(opts.pB>0){
@@ -1228,7 +1269,7 @@ function tWasWaere(el){
   <div class="scroll" style="margin-top:10px"><table class="bnt"><thead><tr><th>Std./Wo.</th><th>Auszahlung</th><th>Verlust</th><th>€/Std.</th></tr></thead><tbody>${tz}</tbody></table></div>
   <p class="hint" style="margin-top:6px">Weniger Zeit kostet prozentual weniger Geld, weil der Steuersatz sinkt. Jobrad und bAV bleiben gleich – sie wiegen bei Teilzeit stärker. €/Std. = Auszahlung pro bezahlter Stunde.</p>
   <h3>Höhere Entgeltgruppe</h3>
-  <p class="hint" style="margin-top:-4px">ERA-Tabelle Metall- und Elektroindustrie Baden-Württemberg, gültig 01.04.–31.10.2026, 35 Std. Leistungszulage mit deinem Satz (${P(lzq)}) mitgerechnet.</p>
+  <p class="hint" style="margin-top:-4px">ERA-Tabelle Metall- und Elektroindustrie Baden-Württemberg, gültig ${esc(WERTE?.era_bw?.gueltig_ab||'2026-04-01')} bis ${esc(WERTE?.era_bw?.gueltig_bis||'2026-10-31')}, ${esc(String(WERTE?.era_bw?.wochenstunden||35))} Std. ${WERTE?`(Werte-Stand ${esc(WERTE.stand)})`:''} Leistungszulage mit deinem Satz (${P(lzq)}) mitgerechnet.</p>
   <div class="scroll"><table class="bnt"><thead><tr><th>Gruppe</th><th>Brutto</th><th>Brutto Δ</th><th>Auszahl. Δ</th></tr></thead><tbody>${egRows}</tbody></table></div>
   <p class="hint" style="margin-top:6px">Δ pro Monat gegenüber heute. Weihnachtsgeld, T-ZUG und Urlaubsgeld richten sich ebenfalls am Entgelt aus und steigen zusätzlich.</p>
   <h3>Steuerklasse & Heirat</h3>
@@ -1266,7 +1307,7 @@ function tEinordnung(el,ks){
 }
 
 /* ---------- Abgaben, Vergleiche, Prognosen ---------- */
-const TARIF_STEPS=[['2023-06',5.2],['2024-05',3.3],['2025-04',2.0],['2026-04',3.1]];
+let TARIF_STEPS=[['2023-06',5.2],['2024-05',3.3],['2025-04',2.0],['2026-04',3.1]];
 const UMLAGE_INSO=0.0015,UMLAGE_U2=0.005,UMLAGE_UV=0.008;
 function yearsData(){
   const yl={};for(const k of Object.keys(slips).filter(x=>KEY.test(x)).sort())if(slips[k].year)yl[k.slice(0,4)]=k;
@@ -1424,6 +1465,131 @@ function tPrognosen(el,ks){
   <h3>Lebensverdienst</h3>${lv}`;
 }
 
+/* ---------- Tarif-Check, Planung, Daten ---------- */
+let TZUGB={2025:651.48,2026:952.00};
+function monthsBetween(a,b){return idx(b)-idx(a)}
+function tTarif(el){
+  const c=ctx();if(!c){el.innerHTML=needSlips('den Tarif-Check');return}
+  const{m,s}=c;const S=Object.keys(slips).filter(k=>KEY.test(k)).sort();
+  const me=c.ge+c.lz||c.gross;const entry=s.info?.entry||null;
+  const keepS=c.einmKeep||0.5,keepAvg=m.net(m.B0)/m.B0;
+  // alle Sonderzahlungen sammeln
+  const all=[];for(const k of S)for(const i of slips[k].items||[]){if(i.free||!(i.amount>0))continue;const n=i.name;let t=null;
+    if(/urlaubsgeld|urlaubsverg|zus.*urlaub/i.test(n))t='UG';else if(/weihnacht|jahressonder/i.test(n))t='WG';else if(/t-?zug\s*a|zusatzgeld\s*a/i.test(n))t='TA';else if(/t-?zug\s*b|zusatzgeld\s*b/i.test(n))t='TB';else if(/t-?geld|trafo|transformations/i.test(n))t='TG';
+    if(t)all.push({k,t,i})}
+  const tenPct=(k,reg)=>{if(!entry)return null;const mo=monthsBetween(entry,k);const st=reg==='SW'?[30,40,50,60]:[25,35,45,55];return mo>=36?st[3]:mo>=24?st[2]:mo>=12?st[1]:mo>=6?st[0]:0};
+  const meAt=k=>{const sl=slips[k];const ge=sum((sl.items||[]).filter(i=>/grundent|grundgeh/i.test(i.name)).map(i=>i.amount)),lz=sum((sl.items||[]).filter(i=>/leistungszul/i.test(i.name)).map(i=>i.amount));return ge+lz||null};
+  const NAMES={UG:'Urlaubsgeld',WG:'Weihnachtsgeld',TA:'T-ZUG A',TB:'T-ZUG B',TG:'T-Geld (Trafobaustein)'};
+  const rows=all.map(({k,t,i})=>{let exp=null,how='';const base=meAt(k);
+    if(t==='TB'&&TZUGB[k.slice(0,4)]){exp=TZUGB[k.slice(0,4)];how=`T-ZUG B ${k.slice(0,4)} laut Tarif Baden-Württemberg: ${E(TZUGB[k.slice(0,4)])}${i.pct?` (${fh(i.pct)} % vom Eckentgelt)`:''}`}
+    else if(t==='TA'&&base){exp=base*0.275;how=`27,5 % vom Monatsentgelt (${E(base)})`}
+    else if(t==='TG'&&base){exp=base*0.184;how=`18,4 % vom Monatsentgelt (${E(base)})`}
+    else if(t==='UG'&&base){exp=base*3/65*0.5*opts.vac;how=`50 % des Tagesentgelts × ${opts.vac} Urlaubstage (≈ ${P(3/65*0.5*opts.vac)} vom Monatsentgelt)`}
+    else if(t==='WG'){const pr=i.pct;const sw=tenPct(k,'SW'),nw=tenPct(k,'NW');if(i.base&&pr!=null){exp=i.base*pr/100;how=`${fh(pr)} % von ${E(i.base)} laut Abrechnung. Tarif: ${sw!=null?`${sw} % (Südwürttemberg-Hohenzollern/Südbaden) bzw. ${nw} % (Nordwürttemberg/Nordbaden) nach ${monthsBetween(entry,k)} Monaten Betriebszugehörigkeit`:'25–60 % je nach Tarifgebiet und Betriebszugehörigkeit'}`;if(sw!=null&&pr<Math.min(sw,nw)-0.01)exp=i.base*Math.min(sw,nw)/100}}
+    const d=exp!=null?i.amount-exp:null,rel=exp?d/exp:null;const st=exp==null?['Info','var(--y5)']:Math.abs(rel)<=0.02?['passt','var(--acc)']:Math.abs(rel)<=0.1?['knapp','var(--y1)']:rel>0?['mehr','var(--acc)']:['prüfen','var(--neg)'];
+    return`<div class="pos"><div class="pt"><span class="pn"><span class="bt" style="margin:0 8px 0 0;background:color-mix(in srgb,${st[1]} 22%,transparent);color:var(--ink)">${st[0]}</span>${NAMES[t]} <small style="color:var(--mut)">${esc(lab(k))}</small></span><b>${E(i.amount)}</b></div><div class="pd">${exp!=null?`Erwartet ca. ${E(exp)}${Math.abs(d)>=1?` (${d>0?'+':'−'}${E(Math.abs(d))})`:''} · `:''}${how||'Keine Vergleichsregel hinterlegt.'} · netto ≈ ${E(i.amount*keepS)}</div></div>`}).join('');
+  // Jahresübersicht: erwartete Sonderzahlungen
+  const yr=new Date().getFullYear();const exp=[['Februar','T-ZUG B',TZUGB[yr]||null],['Mai/Juni','Urlaubsgeld',me*3/65*0.5*opts.vac],['Juli','T-ZUG A (27,5 %)',me*0.275],['Juli','T-Geld (18,4 %)',me*0.184],['November','Weihnachtsgeld (bis 55–60 %)',me*0.6]];
+  // T-ZUG Tage
+  const ta=me*0.275,taN=ta*keepS,dayB=me*3/65,dayN=dayB*keepAvg;
+  // Urlaubstag
+  const ugDay=dayB*0.5,udB=dayB+ugDay;
+  // Überstunden
+  const hr=me/(opts.wh*52/12),z=(opts.ueZ||25)/100,ueB=hr*(1+z),ueN=ueB*(m.net(m.B0+100)-m.net(m.B0))/100;
+  el.innerHTML=`${werteInfo()}<p class="hint" style="margin:0 0 12px">Regeln der Metall- und Elektroindustrie Baden-Württemberg. Monatsentgelt = Grundentgelt + Leistungszulage: <b>${E(me)}</b>${entry?` · Eintritt ${esc(labLong(entry))}`:''}. Netto mit deinem Satz für Sonderzahlungen (${P(keepS)}) geschätzt.</p>
+  <h3 style="margin-top:0">Sonderzahlungen geprüft</h3>
+  ${rows?`<div class="poslist">${rows}</div>`:'<p class="hint">In deinen hochgeladenen Abrechnungen wurden noch keine tariflichen Sonderzahlungen gefunden.</p>'}
+  <p class="hint" style="margin-top:6px">„passt“ = innerhalb 2 % der Tarifregel. Abweichungen können berechtigt sein (Teilzeit, Eintritt im Jahr, Durchschnittsverdienst mit Zuschlägen, Betriebsvereinbarung). Im Zweifel Personalabteilung oder Betriebsrat fragen.</p>
+  <h3>Was dir pro Jahr zusteht (Richtwerte ${yr})</h3>
+  <div class="scroll"><table class="bnt"><thead><tr><th>Zahlung</th><th>Brutto ca.</th><th>Netto ca.</th></tr></thead><tbody>${exp.map(([mo,n,v])=>`<tr><td>${n}<br><small style="color:var(--mut)">${mo}</small></td><td>${v?E(v):'–'}</td><td>${v?E(v*keepS):'–'}</td></tr>`).join('')}
+  <tr style="font-weight:600"><td>Summe</td><td>${E(sum(exp.map(x=>x[2]||0)))}</td><td>${E(sum(exp.map(x=>x[2]||0))*keepS)}</td></tr></tbody></table></div>
+  <h3>T-ZUG A: Geld oder freie Tage?</h3>
+  <div class="cards">${card('T-ZUG A als Geld',bt('Netto'),E(taN),`brutto ${E(ta)} im Juli`,'27,5 % deines Monatsentgelts. Beschäftigte in Schicht, mit Kindern bis 8 Jahre oder mit pflegebedürftigen Angehörigen können stattdessen 8 freie Tage wählen (Antrag meist bis Oktober des Vorjahres).')}
+  ${card('Wert je freiem Tag',bt('Netto'),E(taN/8),`statt ${E(dayN)} für einen normalen Arbeitstag`,`Du „kaufst“ jeden freien Tag für ${E(taN/8)} netto – das ist ${P(taN/8/dayN)} eines normalen Tagesverdiensts. ${taN/8<dayN?'Freie Tage sind damit günstiger als unbezahlter Urlaub.':''}`)}</div>
+  <h3>Was ist ein Urlaubstag wert?</h3>
+  <div class="cards">${card('Urlaubstag',bt('Brutto'),E(udB),`= Tagesentgelt ${E(dayB)} + Urlaubsgeld ${E(ugDay)}`,'Tagesentgelt = Monatsentgelt × 3 ÷ 65 Arbeitstage (13 Wochen). Dazu kommen 50 % Urlaubsgeld pro Urlaubstag.')}
+  ${card('Urlaubstag',bt('Netto'),'≈ '+E(dayN+ugDay*keepS),`${opts.vac} Tage = ≈ ${E((dayN+ugDay*keepS)*opts.vac)} netto im Jahr`,'Ein ganzer Jahresurlaub ist also mehr als ein Monatsgehalt wert.')}</div>
+  <h3>Überstunden</h3>
+  <div class="prev"><div class="wt" style="grid-template-columns:minmax(0,1fr) minmax(0,2fr)">${oIn('ueZ','Zuschlag %',fh(opts.ueZ||25),0,200)}<span></span></div></div>
+  <div class="cards" style="margin-top:10px">${card('Überstunde bezahlt',bt('Brutto'),E(ueB),`Stundenentgelt ${E(hr)} + ${fh(opts.ueZ||25)} %`,`Stundenentgelt = Monatsentgelt ÷ (${fh(opts.wh)} × 52 ÷ 12) Stunden.`)}
+  ${card('Überstunde bezahlt',bt('Netto'),E(ueN),'mit deinem Grenzsteuersatz','Zuschläge für Mehrarbeit sind voll steuer- und sozialversicherungspflichtig (anders als Nacht-, Sonn- und Feiertagszuschläge).')}
+  ${card('Freizeitausgleich','',fh(1+z)+' Std.','frei je Überstunde (falls inkl. Zuschlag)',`Abfeiern ist steuerfrei: 1 Überstunde = ${fh(1+z)} Stunden frei, wenn auch der Zuschlag in Zeit ausgeglichen wird. Bezahlt bekommst du nur ${P(ueN/ueB)} davon.`)}</div>
+  <p class="hint">Mehrarbeitszuschlag laut Tarif meist 25 % bis 50 %, je nach Lage der Stunden – stell deinen Satz ein.</p>`;
+}
+
+function tPlanung(el,ks){
+  const L=idx(ks[ks.length-1]);const w=ks.filter(k=>idx(k)>L-12).map(k=>data[k]);const a1=w.length?sum(w)/w.length:0,md=median(w);
+  const c=ctx();
+  // Miete
+  const mi=[[25,'entspannt'],[30,'üblich'],[35,'knapp']];
+  // Kredit
+  const rate=md*(opts.kq||35)/100;const baufi=rate*12/(((opts.kz||3.5)+(opts.kt||2))/100);
+  const i=(opts.rkz||6.5)/1200,n=opts.rkn||60;const rk=i?rate*(1-(1+i)**-n)/i:rate*n;
+  const yrsT=(()=>{const q=(opts.kz||3.5)/1200,tq=(opts.kt||2)/1200;return q?Math.log(1+q/tq)/Math.log(1+q)/12:1/(tq*12)})();
+  // 50/30/20
+  const b=[[50,'Fixkosten','Miete, Nebenkosten, Versicherungen, Mobilität, Lebensmittel','var(--y4)'],[30,'Freizeit & Wünsche','Ausgehen, Hobbys, Urlaub, Shopping','var(--y1)'],[20,'Sparen & Vorsorge','Notgroschen, ETF, Tilgung','var(--y0)']];
+  // Gehaltsverhandlung
+  let gv=needSlips('den Verhandlungs-Helfer');
+  if(c){const{m,s}=c;const tgt=opts.gvN||300;let lo=0,hi=20000;for(let k=0;k<60;k++){const mid=(lo+hi)/2;if(m.net(m.B0+mid)-m.net(m.B0)<tgt)lo=mid;else hi=mid}
+    const dB=hi,pctR=dB/(c.ge+c.lz||c.gross);
+    const S=Object.keys(slips).filter(k=>KEY.test(k)).sort();const gb=x=>sum((slips[x].items||[]).filter(i=>/grundent|grundgeh/i.test(i.name)).map(i=>i.amount));
+    let lastCh=null;for(let j=1;j<S.length;j++)if(Math.abs(gb(S[j])-gb(S[j-1]))>0.5)lastCh=S[j];
+    const vNow=vpi(VPI_LAST),vThen=lastCh&&lastCh<VPI_LAST?vpi(lastCh):null;const infl=vThen?vNow/vThen-1:null;
+    const Yd=yearsData();const yd=Yd[Yd.length-1];const br=yd?yd.brutto*(yd.mo<12?12/yd.mo:1):null;
+    const pts=[[0,0],...DESTATIS25];let pc=null;if(br){pc=99;for(let q=1;q<pts.length;q++)if(br<=pts[q][1]){const[p0,v0]=pts[q-1],[p1,v1]=pts[q];pc=p0+(p1-p0)*(br-v0)/(v1-v0);break}}
+    const cur=(s.info?.tarif||'').replace(/^EG\s*/i,'EG ');const eg=Object.entries(ERA_BW);const nx=eg.findIndex(([g])=>g===cur);const next=nx>=0&&nx<eg.length-1?eg[nx+1]:null;
+    gv=`<div class="prev"><div class="wt" style="grid-template-columns:minmax(0,1fr) minmax(0,2fr)">${oIn('gvN','Ziel: netto mehr €/Monat',fh(tgt),1,10000)}<span></span></div>
+    <p style="margin:6px 0 0">Dafür brauchst du <b>+${E(dB)} brutto</b> im Monat – das sind <b>+${P(pctR)}</b> auf dein Monatsentgelt (${E(c.ge+c.lz||c.gross)}). Weil von jedem Euro mehr nur ${P(tgt/dB)} netto bleibt.</p></div>
+    <h3>Argumente aus deinen Daten</h3><div class="poslist">
+    ${pc!=null?`<div class="pos"><div class="pt"><span class="pn">Markt</span></div><div class="pd">Mit ca. ${esc(eur0.format(br))} brutto im Jahr liegst du vor etwa ${Math.round(pc)} % der Vollzeitbeschäftigten in Deutschland (Destatis 2025). Für deine Rolle und Region gezielt recherchieren, z. B. mit dem Entgeltatlas der Arbeitsagentur.</div></div>`:''}
+    ${infl!=null?`<div class="pos"><div class="pt"><span class="pn">Inflation</span><b>${pct.format(infl)}</b></div><div class="pd">Seit deiner letzten Erhöhung (${esc(labLong(lastCh))}) sind die Preise um ${pct.format(infl)} gestiegen (Verbraucherpreisindex bis ${esc(labLong(VPI_LAST))}).</div></div>`:''}
+    ${next?`<div class="pos"><div class="pt"><span class="pn">Nächste Entgeltgruppe</span><b>+${E(next[1]-c.ge)}</b></div><div class="pd">${esc(next[0])} wäre ${E(next[1])} Grundentgelt statt ${E(c.ge)} (ERA BW 2026). Eine Höhergruppierung braucht passende Aufgaben – die Arbeitsbeschreibung mit der Eingruppierung abgleichen.</div></div>`:''}
+    <div class="pos"><div class="pt"><span class="pn">Leistungszulage</span><b>${P(c.ge?c.lz/c.ge:0)}</b></div><div class="pd">Deine Leistungszulage. Tariflich liegt sie in Baden-Württemberg im Betriebsdurchschnitt meist bei rund 10 % – ein Hebel bei der Leistungsbeurteilung.</div></div></div>
+    <p class="hint">Tipp: Konkrete Erfolge und neue Aufgaben sammeln – Zahlen schlagen Gefühl.</p>`}
+  el.innerHTML=`${vInfo()}<h3 style="margin-top:0">Wie viel Miete passt?</h3>
+  <p class="hint" style="margin-top:-4px">Bezogen auf deinen typischen Monat (Median ${E(md)}) – Sonderzahlungen sind Puffer, nicht für feste Kosten.</p>
+  <div class="cards">${mi.map(([p,l])=>card(p+' % – '+l,bt('Warmmiete'),E(md*p/100),'pro Monat','')).join('')}</div>
+  <h3>Kreditrahmen</h3>
+  <div class="prev"><div class="wt">${oIn('kq','Rate % vom Netto',fh(opts.kq),5,60)}${oIn('kz','Bauzins %',fh(opts.kz),0,15)}${oIn('kt','Tilgung %',fh(opts.kt),0.5,10)}</div>
+  <div class="wt">${oIn('rkz','Ratenkredit-Zins %',fh(opts.rkz),0,25)}${oIn('rkn','Laufzeit Monate',fh(opts.rkn),6,120)}<span></span></div></div>
+  <div class="cards" style="margin-top:10px">${card('Mögliche Rate','',E(rate),`${fh(opts.kq)} % vom typischen Monat`,'Banken rechnen mit einer Haushaltsrechnung: Einnahmen minus Lebenshaltung, Miete und andere Kredite. Bei Wohneigentum entfällt die Miete.')}
+  ${card('Baufinanzierung bis ca.','',esc(eur0.format(Math.round(baufi/1000)*1000)),`${fh(opts.kz)} % Zins + ${fh(opts.kt)} % Tilgung`,`Abbezahlt nach etwa ${fh(Math.round(yrsT))} Jahren. Dazu kommen meist 10–20 % Eigenkapital plus Kaufnebenkosten (in BW ca. 10–12 %: Grunderwerbsteuer 5 %, Notar, Makler).`)}
+  ${card('Ratenkredit bis ca.','',esc(eur0.format(Math.round(rk/100)*100)),`${fh(opts.rkn)} Monate, ${fh(opts.rkz)} % effektiv`,'z. B. für ein Auto. Gesamtkosten = Rate × Laufzeit – Zinsen vergleichen lohnt sich.')}</div>
+  <h3>Budget nach 50/30/20</h3>
+  <div class="seg2" style="height:22px">${b.map(([p,,,c])=>`<span style="width:${p}%;background:${c}"></span>`).join('')}</div>
+  <div class="poslist" style="margin-top:10px">${b.map(([p,l,d,c])=>`<div class="pos"><div class="pt"><span class="pn"><i style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${c};margin-right:8px"></i>${p} % ${l}</span><b>${E(md*p/100)}</b></div><div class="pd">${d}</div></div>`).join('')}</div>
+  <p class="hint">Vom typischen Monat (${E(md)}). Sonderzahlungen (Ø-Monat ${E(a1)} inkl.) eignen sich gut für Rücklagen, Urlaub oder Extra-Sparen.</p>
+  <h3>Gehaltsverhandlung</h3>${gv}`;
+}
+
+function tDaten(el,ks){
+  const S=new Set(Object.keys(slips).filter(k=>KEY.test(k)));
+  const allK=[...ks,...S].sort();const from=allK[0],to=allK[allK.length-1];const miss=[];for(let i=idx(from);i<=idx(to);i++){const k=key(i);if(!S.has(k))miss.push(k)}
+  const byY={};for(let i=idx(from);i<=idx(to);i++){const k=key(i);(byY[k.slice(0,4)]=byY[k.slice(0,4)]||[]).push(k)}
+  const grid=Object.keys(byY).sort().reverse().map(y=>`<div class="yr" style="grid-template-columns:3.4em minmax(0,1fr)"><span class="num" style="font-size:16px">${y}</span><div style="display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:3px">${Array.from({length:12},(_,m)=>{const k=y+'-'+String(m+1).padStart(2,'0');const inR=byY[y].includes(k);const has=S.has(k);return`<span title="${esc(labLong(k))}" style="height:26px;border-radius:4px;display:grid;place-items:center;font-size:12px;${!inR?'opacity:.25;background:var(--card)':has?'background:var(--acc);color:#fff':'background:color-mix(in srgb,var(--neg) 25%,transparent)'}">${MON[m].slice(0,1)}</span>`}).join('')}</div></div>`).join('');
+  const total=idx(to)-idx(from)+1,have=total-miss.length;
+  const imp=[['Krankengeld, ALG I, Elterngeld','brauchen die Sonderzahlungen bzw. das Brutto der letzten 12 Monate'],['Rentenpunkte','brauchen die Dezember-Abrechnung jedes Jahres (Jahreswerte)'],['Zuschläge & Rufbereitschaft','werden nur aus hochgeladenen Monaten gezählt'],['Kalte Progression, Erhöhungen vs. Tarif','vergleichen Abrechnungen über mehrere Jahre'],['Tarif-Check','prüft Sonderzahlungen in Feb, Mai/Jun, Jul und Nov'],['Auffälligkeiten','vergleichen jede Abrechnung mit der vorherigen']];
+  // Stundenlohn-Verlauf
+  const SS=[...S].sort();let ch='<p class="hint">Mindestens zwei Abrechnungen nötig.</p>';
+  if(SS.length>=2){const mh=opts.wh*52/12;const ref=VPI[VPI_LAST];
+    const bH=SS.map(k=>{const s=slips[k];return((s.steuerbrutto||0)-(s.sonstBezug||0))/mh});
+    const nH=SS.map(k=>{const s=slips[k],l=(s.steuerbrutto||0)-(s.sonstBezug||0);return(l-(s.taxLfd||0)-((s.svTotal||0)-(s.svEinmal||0)))/mh});
+    const rH=SS.map((k,j)=>{const v=vpi(k);return v?nH[j]*ref/v:null});
+    chart('cH',{xs:SS,xl:j=>lab(SS[j]),yf:v=>fh(Math.round(v))+' €',zero:false,sel:null,onSel:()=>{},series:[{c:'var(--y5)',w:2,pts:bH},{c:'var(--y0)',w:3,pts:nH},{c:'var(--y1)',w:2,dash:1,pts:rH}]});
+    const f=0,l=SS.length-1;
+    ch=`<div class="legend2"><span><i style="background:var(--y5)"></i>Brutto/Std.</span><span><i style="background:var(--y0)"></i>Netto/Std.</span><span><i style="background:var(--y1)"></i>Netto/Std. real (Preise ${esc(labLong(VPI_LAST))})</span></div>
+    <div class="fig sm"><svg id="cH" role="img" aria-label="Stundenlohn"></svg></div>
+    <div class="cards">${card('Brutto pro Stunde',bt('Brutto'),E(bH[l]),`${esc(lab(SS[f]))}: ${E(bH[f])} · ${pct.format(bH[l]/bH[f]-1)}`,'Laufendes Brutto ohne Sonderzahlungen ÷ '+fh(Math.round(mh*10)/10)+' Std./Monat.')}
+    ${card('Netto pro Stunde',bt('Netto'),E(nH[l]),`${esc(lab(SS[f]))}: ${E(nH[f])} · ${pct.format(nH[l]/nH[f]-1)}`,'Nach Lohnsteuer und Sozialversicherung, vor Jobrad/bAV.')}
+    ${rH[f]&&rH[l]?card('Netto real',bt('Netto'),pct.format(rH[l]/rH[f]-1),'Kaufkraft-Plus pro Stunde','Netto-Stundenlohn bereinigt um die Preissteigerung.'):''}</div>`}
+  el.innerHTML=`<h3 style="margin-top:0">Vollständigkeit</h3>
+  <div class="cards">${card('Abrechnungen hochgeladen','',have+' von '+total,`Monate ${esc(lab(from))} – ${esc(lab(to))}`,miss.length?`Es fehlen ${miss.length} Monate.`:'Alles da – alle Analysen nutzen die vollen Daten.')}</div>
+  <div style="margin-top:12px">${grid}</div>
+  <div class="legend2"><span><i style="background:var(--acc)"></i>PDF vorhanden</span><span><i style="background:color-mix(in srgb,var(--neg) 25%,transparent)"></i>fehlt</span></div>
+  ${miss.length?`<h3>Was mit mehr PDFs genauer wird</h3><div class="poslist">${imp.map(([a,b])=>`<div class="pos"><div class="pt"><span class="pn">${a}</span></div><div class="pd">${b}</div></div>`).join('')}</div>`:''}
+  <h3>Stundenlohn-Verlauf</h3><p class="hint" style="margin-top:-4px">Aus deinen Abrechnungen bei ${fh(opts.wh)} Std./Woche.</p>${ch}`;
+}
+
 /* 7: Kaufkraft */
 function tKaufkraft(el,ks){
   const ref=VPI[VPI_LAST];const real=ks.map(k=>{const v=vpi(k);return v?data[k]*ref/v:null});
@@ -1549,6 +1715,7 @@ document.addEventListener('visibilitychange',()=>{
   else{clearTimeout(hideT);if(dek&&hiddenAt&&Date.now()-hiddenAt>60000)lock();hiddenAt=0}
 });
 vault=vLoad();if(vault)lockView(true);else setupView();
+loadWerte();
 try{navigator.storage?.persist?.()}catch(e){}
 
 if('serviceWorker' in navigator){

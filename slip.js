@@ -56,6 +56,7 @@
       if ((m = L.match(/St-Kl\.:\s*(\d)/))) p.info.stkl = m[1];
       if ((m = L.match(/KK:\s*\d+\s+(.+?)\s+(\d+,\d+)%/))) { p.info.kk = m[1]; p.info.kkZusatz = toNum(m[2]); }
       if ((m = L.match(/Tarifschl\.\/Wert\s+1:\s*(\S+)/))) p.info.tarif = m[1];
+      if ((m = L.match(/Eintrittsdatum\s+(\d{2})\.(\d{2})\.(\d{4})/))) p.info.entry = m[3] + '-' + m[2];
       if (/^Tg Lohnart/.test(L)) { sec = 'items'; continue; }
       if (/^Jahreswerte/.test(L)) { sec = 'year'; p.year = {}; continue; }
       if (/^Legende|^Bankverbindung/.test(L)) { sec = 'end'; continue; }
@@ -79,7 +80,10 @@
           const amt = Math.abs(last(n)), c = n.slice(0, -1).map(Math.abs); let qty = null, rate = null;
           for (let x = 0; x < c.length && qty == null; x++) for (let y = x + 1; y < c.length; y++) if (Math.abs(c[x] * c[y] - amt) < 0.05) { qty = c[x]; rate = c[y]; break; }
           for (let x = 0; x < c.length && qty == null; x++) for (let y = x + 1; y < c.length && qty == null; y++) for (let z = y + 1; z < c.length; z++) if (Math.abs(c[x] * c[y] * c[z] / 100 - amt) < 0.05) { qty = c[x]; rate = c[z]; break; }
-          p.items.push({ code: m[1], name, amount: last(n), free: /\bN$/.test(rest), st: cm ? cm[1] : null, sv: cm ? cm[2] : null, qty, rate });
+          // Basis × Prozent (z. B. Weihnachtsgeld 5605,54 × 60 %, T-ZUG B 3521,50 × 18,5 %)
+          let base = null, pct = null;
+          if (qty == null) for (let x = 0; x < c.length && base == null; x++) for (let y = 0; y < c.length; y++) if (x !== y && c[y] <= 100 && Math.abs(c[x] * c[y] / 100 - amt) < 0.05) { base = c[x]; pct = c[y]; break; }
+          p.items.push({ code: m[1], name, amount: last(n), free: /\bN$/.test(rest), st: cm ? cm[1] : null, sv: cm ? cm[2] : null, qty, rate, base, pct });
         }
         continue;
       }
