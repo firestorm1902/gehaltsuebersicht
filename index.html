@@ -230,8 +230,9 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.11.0';
+const VERSION='1.12.0';
 const CHANGELOG=[
+  ['1.12.0','27.11.2026','Neue Reiter: Absicherung (Krankengeld, Arbeitslosengeld I, Elterngeld), Was wäre wenn (Teilzeit, höhere Entgeltgruppe nach ERA-Tabelle BW, Steuerklasse & Heirat, Krankenkassenwechsel) und Einordnung (Preis in Arbeitszeit, Vergleich mit Deutschland).'],
   ['1.11.0','27.11.2026','Rentenrechner: ETF-Sparplan mit Rate, Startkapital, Rendite, Dynamik und Entnahmephase – nach Abgeltungsteuer in die Rente eingerechnet.'],
   ['1.10.1','27.11.2026','Rentenrechner: Monatsrente brutto und netto nominal und in heutiger Kaufkraft, mit Kaufkraftverlust.'],
   ['1.10.0','27.11.2026','Neuer Brutto-Netto-Rechner: Brutto und Erhöhung frei einstellbar, Jobrad und Betriebsrente einzeln abwählbar, mit Vergleich und Netto-Kosten der Extras.'],
@@ -253,7 +254,7 @@ const CHANGELOG=[
   ['1.1.0','24.11.2026','Installierbar als App (PWA), funktioniert offline. Versionsanzeige mit Änderungsverlauf. Backup als Datei speichern und laden.'],
   ['1.0.0','24.11.2026','Erste Version: Monate eintragen, Verlauf mit 12-Monats-Schnitt, Kennzahlen, Jahresübersicht, Import der Excel-Werte.']
 ];
-let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10,km:0,ho:0,wm:0,goal:0,sq:15,ret:5,raise:3,raiseFrom:'',rGj:0,rRa:67,rPre:0,rPY:0,rRw:2,rInf:2,rBav:null,rBavR:2,rNeed:80,bnGross:0,bnRaise:0,bnJob:true,bnBav:true,bnJobAmt:null,bnBavAmt:null,etfRate:0,etfStart:0,etfR:6,etfDyn:0,etfPayR:3,etfYrs:25,rPriv:false};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
+let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10,km:0,ho:0,wm:0,goal:0,sq:15,ret:5,raise:3,raiseFrom:'',rGj:0,rRa:67,rPre:0,rPY:0,rRw:2,rInf:2,rBav:null,rBavR:2,rNeed:80,bnGross:0,bnRaise:0,bnJob:true,bnBav:true,bnJobAmt:null,bnBavAmt:null,etfRate:0,etfStart:0,etfR:6,etfDyn:0,etfPayR:3,etfYrs:25,rPriv:false,tzH:30,pB:0,kkT:2.18,prc:1000};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
 
 const idx=k=>{const[y,m]=k.split('-').map(Number);return y*12+m-1};
 const key=i=>Math.floor(i/12)+'-'+String(i%12+1).padStart(2,'0');
@@ -623,11 +624,11 @@ function chart(id,o){charts[id]=()=>lineChart(id,o)}
 
 function analysis(){
   const ks=sorted();const band=$('anlBand');band.hidden=ks.length<2;if(band.hidden){$('anl').innerHTML='';return}
-  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],['brutto','Brutto & Abgaben'],['bn','Brutto-Netto-Rechner'],['steuer','Steuer & Netto'],['extras','Zuschläge & Sonderzahlungen'],['vorsorge','Rente & Vorsorge'],['rechner','Rentenrechner'],['kaufkraft','Kaufkraft'],['ziele','Ziele & Sparen'],['check','Auffälligkeiten']];
+  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],['brutto','Brutto & Abgaben'],['bn','Brutto-Netto-Rechner'],['steuer','Steuer & Netto'],['extras','Zuschläge & Sonderzahlungen'],['vorsorge','Rente & Vorsorge'],['rechner','Rentenrechner'],['abs','Absicherung'],['wasw','Was wäre wenn'],['ein','Einordnung'],['kaufkraft','Kaufkraft'],['ziele','Ziele & Sparen'],['check','Auffälligkeiten']];
   if(!tabs.some(t=>t[0]===aTab))aTab='jahre';
   $('anlTabs').innerHTML=tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${k===aTab}" data-t="${k}">${t}</button>`).join('');
   for(const k in charts)delete charts[k];
-  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto,bn:tBN,steuer:tSteuer,extras:tExtras,vorsorge:tVorsorge,rechner:tRechner,kaufkraft:tKaufkraft,ziele:tZiele,check:tCheck})[aTab]($('anl'),ks);
+  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto,bn:tBN,steuer:tSteuer,extras:tExtras,vorsorge:tVorsorge,rechner:tRechner,abs:tAbsicherung,wasw:tWasWaere,ein:tEinordnung,kaufkraft:tKaufkraft,ziele:tZiele,check:tCheck})[aTab]($('anl'),ks);
   for(const f of Object.values(charts))f();
 }
 $('anlTabs').addEventListener('click',e=>{const b=e.target.closest('button[data-t]');if(!b)return;aTab=b.dataset.t;analysis()});
@@ -642,6 +643,8 @@ $('anl').addEventListener('click',e=>{
   if(b.dataset.jm){jMode=b.dataset.jm;analysis()}
   else if(b.dataset.ms!=null){mSel=+b.dataset.ms;analysis()}
   else if(b.dataset.h){hSel=b.dataset.h;analysis()}
+  else if(b.dataset.kk){opts.kkT=+b.dataset.kk;lsSave();analysis()}
+  else if(b.dataset.prc){opts.prc=+b.dataset.prc;lsSave();analysis()}
 });
 const ro2=new ResizeObserver(()=>{for(const f of Object.values(charts))f()});ro2.observe($('anlBand'));
 
@@ -802,7 +805,7 @@ const VPIY={2023:116.7,2024:119.3,2025:121.9};const VPI_LAST='2026-05';
 const vpi=k=>VPI[k]??(k>VPI_LAST?VPI[VPI_LAST]:VPIY[k.slice(0,4)]??null);
 function estC(z){if(z<=12348)return 0;if(z<=17799){const y=(z-12348)/1e4;return(914.51*y+1400)*y}if(z<=69878){const q=(z-17799)/1e4;return(173.10*q+2397)*q+1034.87}if(z<=277825)return .42*z-11135.63;return .45*z-19470.38}
 function estInv(t){if(t<=0)return 12348;let lo=12348,hi=2e6;for(let i=0;i<80;i++){const m=(lo+hi)/2;if(estC(m)<t)lo=m;else hi=m}return(lo+hi)/2}
-function netModel(s){
+function netModel(s,o={}){
   const B0=(s.steuerbrutto||0)-(s.sonstBezug||0);if(!(B0>0))return null;
   const bs=s.svBaseLfd||[],p=s.svLfd;let r;
   if(p){r={kv:p.kv/(bs[1]||B0),rv:p.rv/(bs[2]||B0),av:p.av/(bs[3]||B0),pv:p.pv/(bs[4]||B0)}}
@@ -812,6 +815,8 @@ function netModel(s){
   const lst0=s.lstLfd??s.taxLfd??0;const ratio=lst0?(s.taxLfd||lst0)/lst0:1;
   const zRaw=B=>12*B-12*sv(B)-1230-36;
   const z0=estInv(lst0*12),off=z0-zRaw(B0);
+  if(o.kvAdd){const r2={...r,kv:r.kv+o.kvAdd};const sv2=B=>r2.kv*Math.min(B,BK)+r2.pv*Math.min(B,BK)+r2.rv*Math.min(B,BR)+r2.av*Math.min(B,BR);
+    const tax2=B=>estC(Math.max(0,12*B-12*sv2(B)-1266+off))/12*ratio;return{B0,r:r2,sv:sv2,tax:tax2,net:B=>B-tax2(B)-sv2(B)}}
   const tax=B=>estC(Math.max(0,zRaw(B)+off))/12*ratio;
   return{B0,r,sv,tax,net:B=>B-tax(B)-sv(B)};
 }
@@ -1076,6 +1081,123 @@ function tBN(el){
    ${useJ?`<div class="note"><b>Jobrad:</b> Ohne Jobrad wäre deine Auszahlung ${E(saveJ.ausz)} – das Rad kostet dich also netto <b>${E(saveJ.ausz-A.ausz)}</b> im Monat statt der Rate von ${E(jUmw)}. Ersparnis durch Steuer und SV: ${E(jUmw-(saveJ.ausz-A.ausz))}.</div>`:''}
    ${useB?`<div class="note"><b>Betriebsrente:</b> Ohne bAV wäre deine Auszahlung ${E(saveB.ausz)} – ${E(bav)} Beitrag kosten dich netto nur <b>${E(saveB.ausz-A.ausz)}</b>. ${E(bav-(saveB.ausz-A.ausz))} tragen Staat und Sozialversicherung. Hinweis: Weniger Rentenbeitrag heißt auch etwas weniger gesetzliche Rente.</div>`:''}`:''}
   <p class="hint">Kantine, Vesper und andere Abzüge nach dem Netto sind nicht enthalten. Kirchensteuer und Soli wie in deiner Abrechnung.</p>`;
+}
+
+/* ---------- Absicherung, Was-wäre-wenn, Einordnung ---------- */
+const ERA_BW={'EG 10':4499.5,'EG 11':4796,'EG 12':5129,'EG 13':5462.5,'EG 14':5795.5,'EG 15':6129,'EG 16':6536.5,'EG 17':6906.5};
+const KKS=[['BKK firmus',2.18],['TUI BKK',2.5],['hkk',2.59],['Audi BKK',2.6],['Techniker (TK)',2.69],['Ø 2026 (amtlich)',2.9],['Barmer',3.29]];
+const DESTATIS25=[[10,33828],[30,44215],[50,54066],[80,80000],[90,100719],[99,219110]];
+function ctx(){
+  const s=lastSlip();if(!s)return null;const m=netModel(s);if(!m)return null;
+  const it=alloc(s);const S=Object.keys(slips).filter(k=>KEY.test(k)).sort();const L=idx(s.month);
+  const last12=S.filter(k=>idx(k)>L-12).map(k=>slips[k]);
+  const einm=sum(last12.map(x=>x.sonstBezug||0));
+  const einmKeep=s.sonstBezug?(s.sonstBezug-s.taxSonst-s.svEinmal)/s.sonstBezug:(sp=>sp?(sp.sonstBezug-sp.taxSonst-sp.svEinmal)/sp.sonstBezug:0.5)(last12.find(x=>x.sonstBezug>0));
+  const lfdAvg=last12.length?sum(last12.map(x=>(x.steuerbrutto||0)-(x.sonstBezug||0)))/last12.length:m.B0;
+  const jUmw=-sum(it.filter(i=>i.kind==='umw'&&/jobrad|leasing|fahrrad|bike/i.test(i.name)).map(i=>i.amount));
+  const jSach=sum(it.filter(i=>i.kind==='lfd'&&/sachbez/i.test(i.name)).map(i=>i.amount));
+  const bav=-sum(it.filter(i=>i.kind==='umw'&&/\bbav\b|betriebl|pensionsk|direktvers|altersvers/i.test(i.name)).map(i=>i.amount));
+  const gross=sum(it.filter(i=>i.kind==='lfd'&&i.amount>0&&!/sachbez|rufber|bereitsch|zuschl|überstund|mehrarb/i.test(i.name)).map(i=>i.amount));
+  const ge=sum(it.filter(i=>/grundent|grundgeh/i.test(i.name)).map(i=>i.amount)),lz=sum(it.filter(i=>/leistungszul/i.test(i.name)).map(i=>i.amount));
+  const calc=g=>{const base=g+jSach-jUmw-bav,sv=m.sv(base),tax=m.tax(base),net=g+jSach-tax-sv;return{base,sv,tax,net,ausz:net-jUmw-jSach-bav}};
+  return{s,m,it,einm,einmKeep,lfdAvg,jUmw,jSach,bav,gross,ge,lz,calc,count:last12.length};
+}
+const ageNow=()=>opts.rGj?new Date().getFullYear()-opts.rGj:null;
+
+function tAbsicherung(el){
+  const c=ctx();if(!c){el.innerHTML=needSlips('die Absicherungs-Rechner');return}
+  const{m,s}=c,r=m.r,now=c.calc(c.gross).net;
+  // Krankengeld
+  const RE=Math.min(c.m.B0/30+c.einm/360,5812.5/30),NE=m.net(c.m.B0)/30+c.einm*c.einmKeep/360;
+  const kgB=Math.min(0.7*RE,0.9*NE),kgSV=(r.rv+r.av+r.pv)*0.8*RE,kgN=(kgB-kgSV)*30;
+  // ALG I
+  const annual=c.lfdAvg*12+c.einm*(c.count?Math.min(1,12/c.count):1),BE=Math.min(annual,101400)/365,BEm=BE*365/12;
+  const lst=m.tax(BEm)/(365/12);const LE=BE*0.8-lst,alg=0.6*LE*30,alg67=0.67*LE*30;
+  const age=ageNow();const dur=age==null?null:age>=58?24:age>=55?18:age>=50?15:12;
+  // Elterngeld
+  const BG=c.lfdAvg-102.5,egN=BG-m.tax(BG)-0.21*BG;const rate=egN<=1200?0.67:egN>=1240?0.65:0.67-(egN-1200)/40*0.02;
+  const eg=Math.max(300,Math.min(1800,rate*Math.min(egN,2770))),egPlus=eg/2;
+  const zv=estInv((s.year?s.year.lohnsteuer/(+s.month.slice(5))*12:m.tax(m.B0)*12));
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Was du bekämst, wenn das Gehalt wegfällt. Vergleich jeweils mit deinem heutigen laufenden ${bt('Netto')} <b>${E(now)}</b> im Monat (ohne Sonderzahlungen, vor Jobrad und bAV). Sonderzahlungen der letzten 12 Monate laut hochgeladenen Abrechnungen: ${E(c.einm)}${c.count<12?` – aus nur ${c.count} Abrechnung${c.count>1?'en':''}, lade alle 12 hoch für genauere Werte`:''}. Grob geschätzt nach den gesetzlichen Regeln 2026 – verbindlich ist nur der Bescheid.</p>
+  <h3 style="margin-top:0">Krankengeld</h3>
+  <div class="cards">${card('Krankengeld',bt('Netto'),E(kgN),`im Monat · ${P(kgN/now)} deines Nettos`,`Die ersten 6 Wochen zahlt der Arbeitgeber dein Gehalt weiter. Danach zahlt die Krankenkasse 70 % vom Brutto (inkl. anteiliger Sonderzahlungen), höchstens 90 % vom Netto und höchstens ${E(5812.5/30*0.7)} pro Tag. Davon gehen deine Anteile für Renten-, Arbeitslosen- und Pflegeversicherung ab (${E(kgSV*30)}). Steuerfrei, unterliegt aber dem Progressionsvorbehalt.`)}
+  ${card('Lücke zum Gehalt',bt('Netto'),now-kgN>0?E(now-kgN):'keine',now-kgN>0?'weniger pro Monat':'Krankengeld deckt dein laufendes Netto','Bis zu 78 Wochen innerhalb von 3 Jahren für dieselbe Krankheit. Jobrad-Rate und bAV laufen je nach Vertrag weiter oder ruhen – nicht eingerechnet.')}</div>
+  <h3>Arbeitslosengeld I</h3>
+  <div class="cards">${card('ALG I',bt('Netto'),E(alg),`im Monat · ${P(alg/now)} deines Nettos`,`60 % vom „Leistungsentgelt“: dein Brutto der letzten 12 Monate inkl. Sonderzahlungen (${E(annual)}, max. 101.400 €) pro Tag, minus 20 % Sozialversicherungspauschale und Lohnsteuer (Steuerklasse ${esc(s.info?.stkl||'1')}). Mit Kind: 67 % = ${E(alg67)}.`)}
+  ${card('Bezugsdauer','',dur?dur+' Monate':'12 Monate*',age!=null?`mit ${age} Jahren`:'*bei unter 50 Jahren',`Voraussetzung: mindestens 12 Monate versicherungspflichtig in den letzten 30 Monaten. Ab 50 Jahren bis 15, ab 55 bis 18, ab 58 bis 24 Monate (bei entsprechend langer Beschäftigung). ${age==null?'Geburtsjahr im Rentenrechner eintragen für die genaue Dauer.':''}`)}</div>
+  <h3>Elterngeld</h3>
+  <div class="cards">${card('Basiselterngeld','',E(eg),`im Monat · 12 Monate (+2 Partnermonate)`,`${P(rate)} vom Elterngeld-Netto (${E(egN)}): laufendes Brutto der letzten 12 Monate (${E(c.lfdAvg)}) minus Werbungskosten-Pauschale, Lohnsteuer und 21 % Sozialabgabenpauschale. Sonderzahlungen zählen nicht. Höchstbetrag 1.800 €, mindestens 300 €.`)}
+  ${card('ElterngeldPlus','',E(egPlus),'im Monat · doppelt so lange (24 Monate)','Halb so hoch, dafür doppelt so lange – lohnt sich vor allem, wenn du in Teilzeit (bis 32 Std./Woche) weiterarbeitest.')}
+  ${card('Lücke zum Gehalt',bt('Netto'),E(now-eg),'weniger pro Monat mit Basiselterngeld',`Kein Anspruch, wenn ihr als Eltern zusammen mehr als 175.000 € zu versteuerndes Einkommen habt – dein Anteil liegt bei ca. ${E(zv)}. Eine Reform mit höheren Beträgen ist geplant, aber noch nicht beschlossen.`)}</div>`;
+}
+
+function tWasWaere(el){
+  const c=ctx();if(!c){el.innerHTML=needSlips('die Was-wäre-wenn-Rechner');return}
+  const{m,s}=c;const A=c.calc(c.gross);
+  // Teilzeit
+  const hs=[...new Set([opts.wh,opts.tzH||30,32,30,28,25,20].map(Number))].filter(h=>h>0&&h<=opts.wh).sort((a,b)=>b-a);
+  const tz=hs.map(h=>{const g=c.gross*h/opts.wh,x=c.calc(g),lossB=1-h/opts.wh,lossN=1-x.ausz/A.ausz;return`<tr${h===opts.wh?' style="font-weight:600"':''}><td>${fh(h)} Std.<br><small style="color:var(--mut)">${esc(eur0.format(g))} brutto</small></td><td>${E(x.ausz)}</td><td>${h===opts.wh?'–':'−'+P(lossN)+`<br><small style="color:var(--mut)">Zeit −${P(lossB)}</small>`}</td><td>${E(x.ausz/(h*52/12))}</td></tr>`}).join('');
+  // Entgeltgruppe
+  const cur=(s.info?.tarif||'').replace(/^EG\s*/i,'EG ');const lzq=c.ge?c.lz/c.ge:0;const other=c.gross-c.ge-c.lz;
+  const egRows=Object.entries(ERA_BW).map(([g,ge])=>{const gross=ge*(1+lzq)+other,x=c.calc(gross),d=x.ausz-A.ausz,db=gross-c.gross;const isC=g===cur;
+    return`<tr${isC?' style="font-weight:600"':''}><td>${g}${isC?' <span class="tag">du</span>':''}<br><small style="color:var(--mut)">${esc(eur0.format(ge))} Grund</small></td><td>${E(gross)}</td><td>${isC?'–':(db>=0?'+':'−')+E(Math.abs(db))}</td><td class="${isC?'':d>=0?'up':'dn'}">${isC?E(x.ausz):(d>=0?'+':'−')+E(Math.abs(d))}</td></tr>`}).join('');
+  // Steuerklasse / Heirat
+  let sk='<p class="hint" style="margin:0">Trage das monatliche Brutto deines Partners/deiner Partnerin ein.</p>';
+  if(opts.pB>0){
+    const zOf=B=>Math.max(0,12*B-12*m.sv(B)-1266);const z1=estInv(m.tax(m.B0)*12/((s.taxLfd||1)/(s.lstLfd||s.taxLfd||1))),z2=zOf(opts.pB);
+    const sep=estC(z1)+estC(z2),joint=2*estC((z1+z2)/2),adv=sep-joint;
+    const sk5=z=>Math.max(2*(estC(1.25*z)-estC(0.75*z)),0.14*z);
+    const comb=[['IV / IV',estC(z1),estC(z2)],['III (du) / V',2*estC(z1/2),sk5(z2)],['V (du) / III',sk5(z1),2*estC(z2/2)]];
+    sk=`<div class="cards">${card('Splittingvorteil pro Jahr','',E(adv),`${E(adv/12)} im Monat`,'So viel weniger Einkommensteuer zahlt ihr verheiratet zusammen (Ehegattensplitting) – unabhängig von der Steuerklasse. Die Steuerklasse verteilt nur, wie viel schon monatlich abgezogen wird; der Rest wird mit der Steuererklärung ausgeglichen.')}</div>
+    <div class="scroll" style="margin-top:10px"><table class="bnt"><thead><tr><th>Klassen</th><th>du</th><th>Partner</th><th>Summe</th></tr></thead><tbody>
+    ${comb.map(([n,a,b])=>`<tr><td>${n}</td><td>${E(a/12)}</td><td>${E(b/12)}</td><td>${E((a+b)/12)}</td></tr>`).join('')}
+    <tr><td>Endgültig (Splitting)</td><td colspan="2" style="text-align:center;color:var(--mut)">gemeinsam</td><td><b>${E(joint/12)}</b></td></tr></tbody></table></div>
+    <p class="hint" style="margin-top:6px">Monatliche Lohnsteuer, grob nach Tarif 2026. Bei III/V ist eine Steuererklärung Pflicht und es drohen Nachzahlungen; IV/IV mit Faktor verteilt die Steuer fair.</p>`}
+  // Krankenkasse
+  const cz=s.info?.kkZusatz??2.69;const tgt=opts.kkT||2.18;
+  const annKV=Math.min(m.B0*12+c.einm,69750);const save=(cz-tgt)/200*annKV;
+  const m2=netModel(s,{kvAdd:(tgt-cz)/200});const netSave=(m2.net(m.B0)-m.net(m.B0))*12+(c.einm?(c.einm*(cz-tgt)/200*0.6):0);
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Basis: Abrechnung ${esc(labLong(s.month))}, laufendes Gehalt ohne Sonderzahlungen, mit deinem Jobrad und deiner bAV. ${bt('Brutto')} vor, ${bt('Netto')} nach Steuer und Sozialversicherung, Auszahlung nach allen Abzügen. Grob geschätzt, ohne Gewähr.</p>
+  <h3 style="margin-top:0">Teilzeit</h3>
+  <div class="prev"><div class="wt" style="grid-template-columns:minmax(0,1fr) minmax(0,2fr)">${oIn('tzH','Wunsch-Std./Woche',fh(opts.tzH||30),1,opts.wh)}<span></span></div></div>
+  <div class="scroll" style="margin-top:10px"><table class="bnt"><thead><tr><th>Std./Wo.</th><th>Auszahlung</th><th>Verlust</th><th>€/Std.</th></tr></thead><tbody>${tz}</tbody></table></div>
+  <p class="hint" style="margin-top:6px">Weniger Zeit kostet prozentual weniger Geld, weil der Steuersatz sinkt. Jobrad und bAV bleiben gleich – sie wiegen bei Teilzeit stärker. €/Std. = Auszahlung pro bezahlter Stunde.</p>
+  <h3>Höhere Entgeltgruppe</h3>
+  <p class="hint" style="margin-top:-4px">ERA-Tabelle Metall- und Elektroindustrie Baden-Württemberg, gültig 01.04.–31.10.2026, 35 Std. Leistungszulage mit deinem Satz (${P(lzq)}) mitgerechnet.</p>
+  <div class="scroll"><table class="bnt"><thead><tr><th>Gruppe</th><th>Brutto</th><th>Brutto Δ</th><th>Auszahl. Δ</th></tr></thead><tbody>${egRows}</tbody></table></div>
+  <p class="hint" style="margin-top:6px">Δ pro Monat gegenüber heute. Weihnachtsgeld, T-ZUG und Urlaubsgeld richten sich ebenfalls am Entgelt aus und steigen zusätzlich.</p>
+  <h3>Steuerklasse & Heirat</h3>
+  <div class="prev"><div class="wt" style="grid-template-columns:minmax(0,1fr) minmax(0,2fr)">${oIn('pB','Brutto Partner €/Monat',fh(opts.pB||0),0,100000)}<span></span></div>${sk}</div>
+  <h3>Krankenkasse wechseln</h3>
+  <div class="prev"><p style="margin:0 0 8px">Dein Zusatzbeitrag: <b>${fh(cz)} %</b> (${esc(s.info?.kk||'Krankenkasse')}). Vergleichen mit:</p>
+  <div class="seg">${KKS.map(([n,z])=>`<button type="button" data-kk="${z}" aria-pressed="${Math.abs(tgt-z)<0.001}">${esc(n)} ${fh(z)} %</button>`).join('')}</div>
+  ${Math.abs(cz-tgt)<0.001?'<p class="hint" style="margin:0">Das ist deine aktuelle Kasse.</p>':`<p style="margin:6px 0 0">Du ${save>0?'sparst':'zahlst mehr'}: <b>${E(Math.abs(save))}</b> im Jahr Beitrag (dein halber Anteil der Differenz) – nach Steuer ca. <b>${E(Math.abs(netSave))}</b> mehr ${save>0?'':'weniger '}netto.</p>`}
+  <p class="hint" style="margin:6px 0 0">Zusatzbeiträge 2026 bundesweit geöffneter Kassen (Stand Jahresbeginn; können sich unterjährig ändern). Leistungen und Service unterscheiden sich – nicht nur auf den Beitrag schauen.</p></div>`;
+}
+
+function tEinordnung(el,ks){
+  const c=ctx();const L=idx(ks[ks.length-1]);const w=ks.filter(k=>idx(k)>L-12).map(k=>data[k]);const a1=w.length?sum(w)/w.length:0;
+  const wd=Math.max(1,260-opts.vac-opts.hol),hd=opts.wh/5,perH=a1*12/(wd*hd),perD=a1*12/wd;
+  const price=opts.prc||1000,hrs=price/perH;
+  const keep=c?(c.m.net(c.m.B0+100)-c.m.net(c.m.B0))/100:0.5;
+  // Vergleich Deutschland
+  let cmp='<p class="hint">Für den Vergleich brauche ich die Jahreswerte aus einer hochgeladenen Abrechnung.</p>';
+  const yl={};for(const k of Object.keys(slips).sort())if(slips[k].year)yl[k.slice(0,4)]=k;
+  const yk=Object.keys(yl).sort().reverse();
+  if(yk.length){const y=yk.find(y=>+yl[y].slice(5)===12)||yk[0];const mo=+yl[y].slice(5);const br=slips[yl[y]].year.brutto*(mo<12?12/mo:1);
+    const pts=[[0,0],...DESTATIS25];let pc=99.5;for(let i=1;i<pts.length;i++){if(br<=pts[i][1]){const[p0,v0]=pts[i-1],[p1,v1]=pts[i];pc=p0+(p1-p0)*(br-v0)/(v1-v0);break}}
+    const mx=DESTATIS25[4][1]*1.15;
+    cmp=`<div class="cards">${card('Dein Jahresbrutto '+y,bt('Brutto'),E(br),mo<12?`hochgerechnet aus ${mo} Monaten`:'laut Abrechnung, inkl. Sonderzahlungen',`Verglichen mit allen Vollzeitbeschäftigten in Deutschland 2025 (Destatis, inkl. Sonderzahlungen).`)}
+    ${card('Du liegst vor',  '','ca. '+Math.round(pc)+' %',`der Vollzeitbeschäftigten`,`Median (Mitte): ${esc(eur0.format(54066))} · obere 20 %: ab ca. ${esc(eur0.format(80000))} · obere 10 %: ab ${esc(eur0.format(100719))}. Zwischenwerte interpoliert.`)}</div>
+    <div style="margin-top:12px">${[['Untere 10 %',33828],['30 %',44215],['Median',54066],['Obere 20 %',80000],['Obere 10 %',100719],['Du',br]].map(([l,v])=>`<div class="yr"><span>${l}</span><div><div class="bar"><span style="width:${Math.min(100,v/mx*100).toFixed(1)}%;${l==='Du'?'':'background:var(--y5)'}"></span></div></div><span class="v">${esc(eur0.format(v))}</span></div>`).join('')}</div>`}
+  el.innerHTML=`${vInfo()}<h3 style="margin-top:0">Was kostet das in Arbeitszeit?</h3>
+  <div class="prev"><div class="wt" style="grid-template-columns:minmax(0,1fr) minmax(0,2fr)">${oIn('prc','Preis in €',fh(price),0,10000000)}<span></span></div>
+  <div class="seg" style="margin-top:6px">${[['Kaffee',3.5],['Tankfüllung',90],['Handy',1200],['Urlaub',3000],['Auto',35000]].map(([n,v])=>`<button type="button" data-prc="${v}" aria-pressed="${price===v}">${n}</button>`).join('')}</div></div>
+  <div class="cards" style="margin-top:12px">
+  ${card('Arbeitszeit','',hrs<1?Math.round(hrs*60)+' Min.':fh(Math.round(hrs*10)/10)+' Std.',`= ${fh(Math.round(price/perD*10)/10)} Arbeitstage`,`Bei ${E(perH)} pro gearbeiteter Stunde (${vN()} der letzten 12 Monate ÷ ${wd} Arbeitstage à ${fh(hd)} Std.).`)}
+  ${card('Anteil am Monat','',P(price/a1),`deines Ø-Monatswerts (${E(a1)})`,'')}
+  ${card('Nötiges Brutto',bt('Brutto'),E(price/keep),'als Gehaltserhöhung bzw. Überstunden',`Weil von jedem zusätzlichen Euro Brutto nur ca. ${P(keep)} netto bleiben.`)}</div>
+  <h3>Vergleich mit Deutschland</h3>${cmp}`;
 }
 
 /* 7: Kaufkraft */
