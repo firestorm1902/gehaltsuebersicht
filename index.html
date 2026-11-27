@@ -228,8 +228,9 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.8.2';
+const VERSION='1.8.3';
 const CHANGELOG=[
+  ['1.8.3','27.11.2026','Fix: Bei mehreren Sonderzahlungen in einem Monat (z. B. Sonderzahlung + T-ZUG) wurden Steuer und SV bei älteren Uploads einer Zahlung allein zugeordnet.'],
   ['1.8.2','27.11.2026','Zuschläge nach Art getrennt (Rufbereitschaft, Nacht, Sonn-/Feiertag, Überstunden) mit Jahresübersicht und Einheiten. Steuerfreier Anteil wird nicht mehr doppelt gezählt.'],
   ['1.8.1','27.11.2026','Gehaltserhöhung-Simulation: Tarifentgelt ohne Sonderzahlungen, Zuschläge und VWL.'],
   ['1.8.0','27.11.2026','Neue Analysen: Was von mehr Brutto netto bleibt, Gehaltserhöhung simulieren, Steuererklärungs-Helfer mit Werbungskosten, Zuschläge und Sonderzahlungen, Rentenpunkte, Bilanz von Betriebsrente und Jobrad, Kaufkraft nach Inflation, Gehaltsziel, Sparrechner und Auffälligkeiten-Check.'],
@@ -473,13 +474,16 @@ function showPending(){
 $('anaSel').addEventListener('change',e=>{anaMonth=e.target.value;ana()});
 function alloc(s){
   const sp=new Set((s.special||[]).map(x=>x.name));
-  const items=(s.items||[]).map(i=>{let st=i.st,sv=i.sv;if(st==null){st=sp.has(i.name)?'02':'01';sv=sp.has(i.name)?'5':'1'}
+  const SPX=/urlaubsgeld|weihnacht|t-zug|zusatzgeld|sonderz|prämie|praemie|bonus|erfolgsbet|einmal|jubil|13\./i;
+  const items=(s.items||[]).map(i=>{let st=i.st,sv=i.sv;if(st==null){const x=sp.has(i.name)||(!i.free&&SPX.test(i.name));st=x?'02':'01';sv=x?'5':'1'}
     const kind=i.free?(i.amount<0?'umw':'info'):(st==='02'||sv==='5')?'sonst':'lfd';return{...i,st,sv,kind,tax:0,svA:0}});
   const taxOn=i=>i.st!=='00'&&i.st!=='38',svOn=i=>i.sv!=='0';
   const svLfd=(s.svTotal||0)-(s.svEinmal||0);
   const L=items.filter(i=>i.kind==='lfd'||i.kind==='umw'),S=items.filter(i=>i.kind==='sonst');
-  const share=(arr,f,total,k)=>{const b=sum(arr.filter(f).map(i=>i.amount));if(Math.abs(b)<0.01)return;for(const i of arr)if(f(i))i[k]=total*i.amount/b};
-  share(L,taxOn,s.taxLfd||0,'tax');share(L,svOn,svLfd,'svA');share(S,taxOn,s.taxSonst||0,'tax');share(S,svOn,s.svEinmal||0,'svA');
+  // Basis = Summe der Positionen, aber nie kleiner als die Bemessungsgrundlage laut Abrechnung – so kann eine Position nie mehr Abzüge tragen, als auf sie entfallen
+  const share=(arr,f,total,k,base)=>{const b=Math.max(sum(arr.filter(f).map(i=>i.amount)),base||0);if(Math.abs(b)<0.01)return;for(const i of arr)if(f(i))i[k]=total*i.amount/b};
+  const bL=(s.steuerbrutto||0)-(s.sonstBezug||0),bS=s.sonstBezug||0;
+  share(L,taxOn,s.taxLfd||0,'tax',bL);share(L,svOn,svLfd,'svA',bL);share(S,taxOn,s.taxSonst||0,'tax',bS);share(S,svOn,s.svEinmal||0,'svA',bS);
   for(const i of items)i.net=i.kind==='umw'?-(i.tax+i.svA):i.kind==='info'?0:i.amount-i.tax-i.svA;
   return items;
 }
