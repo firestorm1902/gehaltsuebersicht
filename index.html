@@ -228,8 +228,10 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.8.0';
+const VERSION='1.8.2';
 const CHANGELOG=[
+  ['1.8.2','27.11.2026','Zuschläge nach Art getrennt (Rufbereitschaft, Nacht, Sonn-/Feiertag, Überstunden) mit Jahresübersicht und Einheiten. Steuerfreier Anteil wird nicht mehr doppelt gezählt.'],
+  ['1.8.1','27.11.2026','Gehaltserhöhung-Simulation: Tarifentgelt ohne Sonderzahlungen, Zuschläge und VWL.'],
   ['1.8.0','27.11.2026','Neue Analysen: Was von mehr Brutto netto bleibt, Gehaltserhöhung simulieren, Steuererklärungs-Helfer mit Werbungskosten, Zuschläge und Sonderzahlungen, Rentenpunkte, Bilanz von Betriebsrente und Jobrad, Kaufkraft nach Inflation, Gehaltsziel, Sparrechner und Auffälligkeiten-Check.'],
   ['1.7.1','27.11.2026','Überall gekennzeichnet, ob ein Wert Brutto, Netto oder Auszahlung ist, mit ausführlicheren Erklärungen. Neu: Netto-Stundenlohn.'],
   ['1.7.0','24.11.2026','Monatsanalyse: alle Positionen mit anteiliger Lohnsteuer und Sozialversicherung und was davon netto bleibt. Weg vom Netto zur Auszahlung. Netto-Kosten von Jobrad, Betriebsrente und Kantine.'],
@@ -838,7 +840,7 @@ function tSteuer(el){
   if(sp)C.push(card('Von 100 € Sonderzahlung',bt('Netto'),'bleiben '+E(100*(sp.sonstBezug-sp.taxSonst-sp.svEinmal)/sp.sonstBezug),`laut Abrechnung ${esc(lab(sp.month))}`,'Einmalzahlungen wie Urlaubs- oder Weihnachtsgeld werden als „sonstiger Bezug“ besteuert – sie landen komplett in deinem höchsten Steuersatz.'));
   const rows=[100,250,500,1000].map(d=>{const dn=m.net(B0+d)-m.net(B0);return`<tr><td>+${E(d)}</td><td>+${E(dn)}</td><td>${P(dn/d)}</td><td>−${E(m.tax(B0+d)-m.tax(B0))}</td><td>−${E(m.sv(B0+d)-m.sv(B0))}</td></tr>`}).join('');
   // Szenario
-  const tarif=sum((s.items||[]).filter(i=>!i.free&&(i.st==='01'||i.st==null)&&i.amount>0&&!/sachbez/i.test(i.name)).map(i=>i.amount))||B0;
+  const tarifIt=alloc(s).filter(i=>i.kind==='lfd'&&i.amount>0&&!/sachbez|vwl|vermögensw|zuschl|bereitsch|rufber|überstund|mehrarb|prämie|bonus/i.test(i.name));const tarif=sum(tarifIt.map(i=>i.amount))||B0;
   const r=(opts.raise||0)/100,dB=tarif*r,dN=m.net(B0+dB)-m.net(B0);
   const from=KEY.test(opts.raiseFrom||'')?opts.raiseFrom:key(idx(s.month)+1);
   const restY=12-(idx(from)%12);
@@ -860,7 +862,7 @@ function tSteuer(el){
   <div class="scroll"><table><thead><tr><th>Brutto mehr</th><th>Netto mehr</th><th>bleibt</th><th>Lohnsteuer</th><th>SV</th></tr></thead><tbody>${rows}</tbody></table></div>
   <h3>Gehaltserhöhung simulieren</h3>
   <div class="prev"><div class="wt" style="grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)">${oIn('raise','Erhöhung in %',fh(opts.raise),0,50)}${oIn('raiseFrom','ab Monat',from,null,null,'m')}</div>
-  <p style="margin:6px 0 0">Auf dein Tarifentgelt (${E(tarif)}) gerechnet: ${bt('Brutto')} <b>+${E(dB)}</b> im Monat → ${bt('Netto')} <b>+${E(dN)}</b> im Monat (${P(dB?dN/dB:0)} davon bleiben).</p>
+  <p style="margin:6px 0 0">Auf dein monatliches Tarifentgelt (${E(tarif)}: ${esc(tarifIt.map(i=>i.name).join(' + ')||'laufendes Brutto')}) gerechnet: ${bt('Brutto')} <b>+${E(dB)}</b> im Monat → ${bt('Netto')} <b>+${E(dN)}</b> im Monat (${P(dB?dN/dB:0)} davon bleiben).</p>
   <p class="hint" style="margin:6px 0 0">Bis Ende ${from.slice(0,4)} (${restY} ${restY===1?'Monat':'Monate'}): +${E(dN*restY)} netto · auf 12 Monate: +${E(dN*12)} netto. Dein Ø Monatswert (${vN()}) stiege von ${E(a1)} auf ca. ${E(a1+dN)}. Sonderzahlungen, die sich am Gehalt orientieren, steigen zusätzlich.</p></div>
   <h3>Helfer für die Steuererklärung</h3>
   ${yRows?`<p class="hint" style="margin-top:-4px">Werte aus dem Block „Jahreswerte“ deiner letzten Abrechnung je Jahr – so stehen sie auch auf der Lohnsteuerbescheinigung. ${bt('Brutto')} Steuerbrutto; Sozialversicherung = dein Arbeitnehmeranteil.</p>
@@ -876,24 +878,41 @@ function tExtras(el){
   const S=Object.keys(slips).filter(k=>KEY.test(k)).sort();if(!S.length){el.innerHTML=needSlips('Zuschläge und Sonderzahlungen');return}
   const ZRE=/rufber|bereitsch|zuschl|nachtarb|überstund|mehrarb|schichtz/i;
   const SRE=/urlaubsgeld|weihnacht|t-zug|zusatzgeld|prämie|praemie|bonus|erfolgsbet|inflationsaus|jubil|13\.|sonderz/i;
-  const Z={};const add=(mo,b,n,f,src)=>{const o=Z[mo]=Z[mo]||{b:0,n:0,f:0,src:new Set()};o.b+=b;o.n+=n;o.f+=f;o.src.add(src)};
+  const FREE=/^st-?freier|steuerfreier anteil|freier anteil/i;
+  const cat=n=>/rufber|bereitsch/i.test(n)?'Rufbereitschaft':/nacht/i.test(n)?'Nachtzuschläge':/sonn|feiert/i.test(n)?'Sonn- & Feiertag':/überstund|mehrarb/i.test(n)?'Überstunden':'Sonstige Zuschläge';
+  const CATS=['Rufbereitschaft','Nachtzuschläge','Sonn- & Feiertag','Überstunden','Sonstige Zuschläge'];
+  const Z={};const F={};
+  const add=(mo,c,b,n,q,paid)=>{const o=(Z[mo]=Z[mo]||{})[c]=(Z[mo]||{})[c]||{b:0,n:0,q:0,qb:0,paid:new Set()};o.b+=b;o.n+=n;if(q){o.q+=q;o.qb+=b}o.paid.add(paid)};
   const SP=[];
   for(const k of S){const s=slips[k];const it=alloc(s);
-    for(const i of it){if(i.kind==='info'&&ZRE.test(i.name)&&/frei/i.test(i.name))add(k,0,0,i.amount,'');
-      else if((i.kind==='lfd'||i.kind==='sonst')&&ZRE.test(i.name))add(k,i.amount,i.net,i.st==='00'?i.amount:0,i.name);
+    for(const i of it){
+      if(FREE.test(i.name)||(i.kind==='info'&&/frei/i.test(i.name))){if(ZRE.test(i.name))F[k]=(F[k]||0)+i.amount;continue}
+      if((i.kind==='lfd'||i.kind==='sonst')&&ZRE.test(i.name))add(k,cat(i.name),i.amount,i.net,i.qty,k);
       if((i.kind==='sonst'||(i.kind==='lfd'&&SRE.test(i.name)))&&!ZRE.test(i.name))SP.push({k,name:i.name,b:i.amount,n:i.net})}
-    for(const r of s.retros||[]){const q=r.brutto?r.netto/r.brutto:0;for(const i of r.items||[]){if(!ZRE.test(i.name))continue;
-      if(i.free){if(/frei/i.test(i.name))add(r.month,0,0,i.amount,'')}else add(r.month,i.amount,i.amount*q,i.st==='00'?i.amount:0,i.name)}}}
-  const zm=Object.keys(Z).filter(k=>Z[k].b>0).sort();
+    for(const r of s.retros||[]){const q=r.brutto?r.netto/r.brutto:0;for(const i of r.items||[]){
+      if(FREE.test(i.name)||i.free){if(ZRE.test(i.name)&&/frei/i.test(i.name))F[r.month]=(F[r.month]||0)+i.amount;continue}
+      if(ZRE.test(i.name))add(r.month,cat(i.name),i.amount,i.amount*q,i.qty,k)}}}
+  const zm=Object.keys(Z).sort();
   let zh='<p class="hint">In deinen Abrechnungen wurden keine Zuschläge oder Bereitschaften gefunden.</p>';
   if(zm.length){
-    const mx=Math.max(...zm.map(k=>Z[k].b));
-    const byY={};for(const k of zm){const y=k.slice(0,4);const o=byY[y]=byY[y]||{b:0,n:0,f:0,c:0};o.b+=Z[k].b;o.n+=Z[k].n;o.f+=Z[k].f;o.c++}
-    const names=[...new Set(zm.flatMap(k=>[...Z[k].src]).filter(Boolean))];
-    zh=`<div class="cards">${Object.keys(byY).sort().reverse().map(y=>{const o=byY[y];return card('Zuschläge '+y,bt('Brutto'),E(o.b),`≈ ${E(o.n)} netto · in ${o.c} Monat${o.c>1?'en':''}`,o.f?`Davon steuerfreier Anteil ca. ${E(o.f)} – Nacht-, Sonn- und Feiertagszuschläge sind teilweise steuerfrei.`:'')}).join('')}</div>
-    <h3>Pro Monat</h3><p class="hint" style="margin-top:-4px">Zugeordnet zum Monat, in dem du gearbeitet hast – Nachberechnungen aus späteren Abrechnungen sind eingerechnet. Netto anteilig geschätzt.</p>
-    ${zm.slice().reverse().map(k=>`<div class="yr"><span>${esc(lab(k))}</span><div><div class="bar"><span style="width:${(Z[k].b/mx*100).toFixed(1)}%"></span></div><small>≈ ${E(Z[k].n)} netto</small></div><span class="v">${E(Z[k].b)}</span></div>`).join('')}
-    <p class="hint" style="margin-top:8px">Erkannte Lohnarten: ${esc(names.join(', '))}</p>`;
+    const Y={};for(const k of zm){const y=k.slice(0,4);for(const c in Z[k]){const o=((Y[y]=Y[y]||{})[c]=(Y[y]||{})[c]||{b:0,n:0,q:0,qb:0,m:0});o.b+=Z[k][c].b;o.n+=Z[k][c].n;o.q+=Z[k][c].q;o.qb+=Z[k][c].qb;o.m++}}
+    const ys=Object.keys(Y).sort().reverse();
+    const ruf=ys.filter(y=>Y[y].Rufbereitschaft).map(y=>{const o=Y[y].Rufbereitschaft;return card('Rufbereitschaft '+y,bt('Brutto'),E(o.b),`≈ ${E(o.n)} netto · in ${o.m} ${o.m===1?'Monat':'Monaten'}${o.q?` · ${fh(o.q)} Einheiten`:''}`,
+      `Ø ${E(o.b/o.m)} brutto pro Monat mit Rufbereitschaft${o.q?` · Ø ${E(o.qb/o.q)} je Einheit (Spalte „Std./Tg.“ der Abrechnung)`:''}${Y[y]['Nachtzuschläge']?`. Dazu Nachtzuschläge ${E(Y[y]['Nachtzuschläge'].b)}`:''}.`)}).join('');
+    const tbl=ys.map(y=>{const cs=CATS.filter(c=>Y[y][c]);const tb=sum(cs.map(c=>Y[y][c].b)),tn=sum(cs.map(c=>Y[y][c].n));const fr=sum(Object.keys(F).filter(k=>k.startsWith(y)).map(k=>F[k]));
+      return`<h3 style="margin-top:18px">${y}: ${E(tb)} brutto → ≈ ${E(tn)} netto</h3><div class="scroll"><table><thead><tr><th>Art</th><th>Brutto</th><th>≈ Netto</th><th>Monate</th><th>Std./Tg.</th></tr></thead><tbody>
+      ${cs.map(c=>`<tr><td>${c}</td><td>${E(Y[y][c].b)}</td><td>${E(Y[y][c].n)}</td><td>${Y[y][c].m}</td><td>${Y[y][c].q?fh(Y[y][c].q):'–'}</td></tr>`).join('')}</tbody></table></div>
+      ${fr?`<p class="hint" style="margin-top:6px">Laut Abrechnung steuer- und SV-freier Anteil der Nacht-, Sonn- und Feiertagszuschläge: ${E(fr)}.</p>`:''}`}).join('');
+    const mx=Math.max(...zm.map(k=>sum(Object.values(Z[k]).map(o=>o.b))));
+    const CC={'Rufbereitschaft':'var(--y0)','Nachtzuschläge':'var(--y2)','Sonn- & Feiertag':'var(--y1)','Überstunden':'var(--y4)','Sonstige Zuschläge':'var(--y5)'};
+    const used=CATS.filter(c=>zm.some(k=>Z[k][c]));
+    const rows=zm.slice().reverse().map(k=>{const t=sum(Object.values(Z[k]).map(o=>o.b)),tn=sum(Object.values(Z[k]).map(o=>o.n));
+      const paid=[...new Set(Object.values(Z[k]).flatMap(o=>[...o.paid]))].filter(p=>p!==k);
+      const det=CATS.filter(c=>Z[k][c]).map(c=>`${c} ${E(Z[k][c].b)}${Z[k][c].q?` (${fh(Z[k][c].q)})`:''}`).join(' · ');
+      return`<div class="yr"><span>${esc(lab(k))}</span><div><div class="seg2" style="width:${(t/mx*100).toFixed(1)}%">${CATS.filter(c=>Z[k][c]).map(c=>`<span style="width:${(Z[k][c].b/t*100).toFixed(1)}%;background:${CC[c]}"></span>`).join('')}</div><small>${det} · ≈ ${E(tn)} netto${paid.length?` · ausgezahlt ${esc(paid.map(lab).join(', '))}`:''}</small></div><span class="v">${E(t)}</span></div>`}).join('');
+    zh=`${ruf?`<div class="cards">${ruf}</div>`:''}${tbl}
+    <h3>Pro Monat</h3><p class="hint" style="margin-top:-4px">Zugeordnet zum Monat, in dem du gearbeitet hast. Rufbereitschaft wird meist im Folgemonat abgerechnet – „ausgezahlt“ zeigt, mit welcher Abrechnung. Netto anteilig geschätzt.</p>
+    <div class="legend2">${used.map(c=>`<span><i style="background:${CC[c]}"></i>${c}</span>`).join('')}</div>${rows}`;
   }
   let sh='<p class="hint">Keine Sonderzahlungen in deinen Abrechnungen gefunden.</p>';
   if(SP.length){const byY={};for(const x of SP)(byY[x.k.slice(0,4)]=byY[x.k.slice(0,4)]||[]).push(x);

@@ -75,7 +75,11 @@
           let name = (cut > 0 ? rest.slice(0, cut) : rest.replace(NUM, '')).replace(/\s+ST\/SV$/, '').trim();
           const cm = cut > 0 ? rest.slice(cut).match(/(\d\d)\s(\d)(?=\s|$)/) : null;
           // st: 00 steuerfrei, 01 laufend, 02 sonstiger Bezug, 38 bAV frei · sv: 0 frei, 1 laufend, 5 einmalig
-          p.items.push({ code: m[1], name, amount: last(n), free: /\bN$/.test(rest), st: cm ? cm[1] : null, sv: cm ? cm[2] : null });
+          // Menge × Satz erkennen (z. B. 6,00 Tage × 78,58 € oder 1,27 Std. × 36,79 € × 30 %)
+          const amt = Math.abs(last(n)), c = n.slice(0, -1).map(Math.abs); let qty = null, rate = null;
+          for (let x = 0; x < c.length && qty == null; x++) for (let y = x + 1; y < c.length; y++) if (Math.abs(c[x] * c[y] - amt) < 0.05) { qty = c[x]; rate = c[y]; break; }
+          for (let x = 0; x < c.length && qty == null; x++) for (let y = x + 1; y < c.length && qty == null; y++) for (let z = y + 1; z < c.length; z++) if (Math.abs(c[x] * c[y] * c[z] / 100 - amt) < 0.05) { qty = c[x]; rate = c[z]; break; }
+          p.items.push({ code: m[1], name, amount: last(n), free: /\bN$/.test(rest), st: cm ? cm[1] : null, sv: cm ? cm[2] : null, qty, rate });
         }
         continue;
       }
