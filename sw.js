@@ -1,5 +1,5 @@
 // Version hier UND in index.html (VERSION) erhöhen, damit Geräte das Update bekommen.
-const VERSION = '1.10.1';
+const VERSION = '1.11.0';
 const CACHE = 'gehalt-' + VERSION;
 const ASSETS = [
   './',
