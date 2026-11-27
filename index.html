@@ -64,6 +64,10 @@ button.danger{border-color:var(--neg);color:var(--neg);background:transparent}
 .pos{padding:10px 0;border-bottom:1px solid var(--rule)}.pos .pt{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
 .pos .pn{min-width:0}.pos .pt b{white-space:nowrap;font-variant-numeric:tabular-nums}.pos .pd{font-size:13px;color:var(--mut);margin-top:2px;font-variant-numeric:tabular-nums}
 .pos.tot{border-bottom:2px solid var(--ink);font-weight:600}.pos .tag{margin-left:6px}
+.bt{display:inline-block;font:600 12px/1.5 Inter,system-ui,sans-serif;border-radius:4px;padding:0 6px;margin-left:6px;vertical-align:2px;white-space:nowrap}
+.bt.n{background:var(--soft);color:var(--acc)}.bt.b{background:color-mix(in srgb,var(--y5) 25%,transparent);color:var(--ink)}
+.hint .bt,.sub .bt{margin:0 6px 0 0}
+.card .x{display:block;font-size:13px;color:var(--mut);margin-top:8px;padding-top:8px;border-top:1px solid var(--rule);line-height:1.45}
 h3{font:600 16px Inter,system-ui,sans-serif;margin:26px 0 10px}
 .up-box{margin-top:16px;display:grid;gap:10px}
 .prev{background:var(--card);border-radius:10px;padding:16px;display:grid;gap:10px}
@@ -144,9 +148,9 @@ details{margin-top:18px}summary{cursor:pointer;color:var(--acc);min-height:44px;
 <main id="app" hidden>
 <section class="band">
   <div class="top"><h1 id="title">Mein Gehaltsverlauf</h1><button type="button" class="mini" id="lockBtn" aria-label="App sperren">Sperren</button></div>
-  <p class="sub" id="lead">Netto inklusive Sonderzahlungen, Monat für Monat.</p>
+  <p class="sub" id="lead"></p>
   <div class="kpis" id="kpis"></div>
-  <div class="legend"><span><i></i>Monatliches Netto</span><span><i class="avg"></i>Ø der letzten 12 Monate</span></div>
+  <div class="legend"><span><i></i><span id="lgV">Monatswert</span></span><span><i class="avg"></i>Ø der letzten 12 Monate (gleitend)</span></div>
   <div class="fig" id="fig"><svg id="chart" role="img" aria-label="Gehaltsverlauf als Liniendiagramm"></svg><div class="tip" id="tip"></div></div>
 </section>
 
@@ -155,7 +159,7 @@ details{margin-top:18px}summary{cursor:pointer;color:var(--acc);min-height:44px;
     <h2>Eintrag</h2>
     <form id="form" autocomplete="off">
       <label>Monat<input type="month" id="fMonth" required></label>
-      <label>Netto in €<input id="fVal" inputmode="decimal" placeholder="z. B. 3366,34" required></label>
+      <label><span id="fLab">Betrag in €</span><input id="fVal" inputmode="decimal" placeholder="z. B. 3366,34" required></label>
       <p class="hint" id="fHint"></p>
       <div class="row"><button type="submit" id="fBtn">Speichern</button><button type="button" class="ghost" id="fReset">Leeren</button></div>
     </form>
@@ -173,7 +177,7 @@ details{margin-top:18px}summary{cursor:pointer;color:var(--acc);min-height:44px;
     </details>
   </div>
   <div>
-    <h2>Jahre</h2>
+    <h2>Jahre</h2><p class="hint" id="yInfo" style="margin-top:-6px"></p>
     <div id="years"></div>
   </div>
 </section>
@@ -224,8 +228,9 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.7.0';
+const VERSION='1.7.1';
 const CHANGELOG=[
+  ['1.7.1','27.11.2026','Überall gekennzeichnet, ob ein Wert Brutto, Netto oder Auszahlung ist, mit ausführlicheren Erklärungen. Neu: Netto-Stundenlohn.'],
   ['1.7.0','24.11.2026','Monatsanalyse: alle Positionen mit anteiliger Lohnsteuer und Sozialversicherung und was davon netto bleibt. Weg vom Netto zur Auszahlung. Netto-Kosten von Jobrad, Betriebsrente und Kantine.'],
   ['1.6.1','24.11.2026','Arbeitszeit einstellbar (Std./Woche, Urlaubs- und Feiertage): Tageslohn, Lohn pro bezahlter und pro gearbeiteter Stunde, Brutto-Stundenlohn.'],
   ['1.6.0','24.11.2026','Neuer Bereich Analyse: Jahr-zu-Jahr-Kurven (monatlich und kumuliert) mit Hochrechnung, gleicher Monat über die Jahre, Saisonprofil, Heatmap, Grundniveau vs. Sonderzahlungen, Rekorde und Wachstum, Brutto/Netto-Entwicklung, Abgabenquote, Jahreswerte und Gehaltserhöhungen aus den PDFs.'],
@@ -272,6 +277,7 @@ async function put(k,v){data[k]=v;lsSave();render()}
 async function del(k){delete data[k];lsSave();render()}
 
 function kpis(){
+  $('lgV').textContent=vN()+' pro Monat';
   const ks=sorted();const el=$('kpis');
   if(!ks.length){el.innerHTML='';$('title').textContent='Mein Gehaltsverlauf';return}
   const last=ks[ks.length-1],li=idx(last);
@@ -283,13 +289,13 @@ function kpis(){
   const total=ks.reduce((s,k)=>s+data[k],0);
   const yr=Math.floor(li/12);const ytd=ks.filter(k=>k.startsWith(yr+'-')).reduce((s,k)=>s+data[k],0);
   const ytdPrev=ks.filter(k=>k.startsWith((yr-1)+'-')&&idx(k)%12<=li%12).reduce((s,k)=>s+data[k],0);
-  $('title').textContent=`Ø ${eur0.format(a1)} netto im Monat`;
-  $('lead').textContent=`Durchschnitt der letzten 12 Monate bis ${labLong(last)}`+(a0?`, ${pct.format(a1/a0-1)} gegenüber dem Jahr davor.`:'.');
+  $('title').textContent=`Ø ${eur0.format(a1)} ${vN()} im Monat`;
+  $('lead').innerHTML=`${bt(vN())}Durchschnitt der letzten 12 Monate bis ${esc(labLong(last))}`+(a0?`, ${esc(pct.format(a1/a0-1))} gegenüber den 12 Monaten davor.`:'.')+` ${vN()} = ${VALD[opts.field]||VALD.auszahlung}.`;
   el.innerHTML=[
-    ['Letzter Monat · '+lab(last),eur.format(data[last]),dl(data[last],prev)+(prev?' <span class="d" style="color:var(--mut)">zum Vormonat</span>':'')],
-    ['Ø 12 Monate',eur.format(a1),a0?dl(a1,a0)+' <span class="d" style="color:var(--mut)">zum Vorjahr</span>':''],
-    ['Summe '+yr+' bis '+MON[li%12],eur0.format(ytd),ytdPrev?dl(ytd,ytdPrev)+' <span class="d" style="color:var(--mut)">zum Vorjahr</span>':''],
-    ['Gesamt · '+ks.length+' Monate',eur0.format(total),'']
+    ['Letzter Monat · '+lab(last)+bt(vN()),eur.format(data[last]),dl(data[last],prev)+(prev?' <span class="d" style="color:var(--mut)">zum Vormonat</span>':'')],
+    ['Ø 12 Monate'+bt(vN()),eur.format(a1),a0?dl(a1,a0)+' <span class="d" style="color:var(--mut)">zum Vorjahr</span>':''],
+    ['Summe '+yr+' bis '+MON[li%12]+bt(vN()),eur0.format(ytd),ytdPrev?dl(ytd,ytdPrev)+' <span class="d" style="color:var(--mut)">zum Vorjahr</span>':''],
+    ['Gesamt · '+ks.length+' Monate'+bt(vN()),eur0.format(total),'']
   ].map(([l,v,d])=>`<div class="kpi"><span class="l">${l}</span><span class="num">${v}</span>${d||'<span class="d">&nbsp;</span>'}</div>`).join('');
 }
 
@@ -326,6 +332,7 @@ function hover(e){
 function unhover(){$('tip').style.opacity=0;const h=$('hd');if(h)h.setAttribute('opacity',0)}
 
 function years(){
+  $('yInfo').innerHTML=bt(vN())+'Summe deiner Monatswerte je Kalenderjahr.';
   const ks=sorted();const by={};for(const k of ks){const y=k.slice(0,4);(by[y]=by[y]||[]).push(data[k])}
   const ys=Object.keys(by).sort().reverse();const mx=Math.max(...ys.map(y=>by[y].reduce((a,b)=>a+b,0)),1);
   $('years').innerHTML=ys.length?ys.map(y=>{const a=by[y],s=a.reduce((p,c)=>p+c,0);return`<div class="yr"><span class="num" style="font-size:20px">${y}</span><div><div class="bar"><span style="width:${(s/mx*100).toFixed(1)}%"></span></div><small>${a.length} ${a.length===1?'Monat':'Monate'} · Ø ${eur0.format(s/a.length)}</small></div><span class="v">${eur.format(s)}</span></div>`}).join(''):'<div class="empty">Noch keine Jahre.</div>';
@@ -333,12 +340,13 @@ function years(){
 function list(){
   const ks=sorted().reverse();
   if(!ks.length){$('list').innerHTML='<div class="empty">Trage deinen ersten Monat oben ein.</div>';return}
-  $('list').innerHTML=`<table><thead><tr><th>Monat</th><th>Netto</th><th class="list-d">zum Vormonat</th><th></th></tr></thead><tbody>${ks.map((k,j)=>{const p=ks[j+1];const v=data[k];const d=p?v-data[p]:null;return`<tr><td>${labLong(k)}</td><td>${eur.format(v)}</td><td class="list-d ${d==null?'':d>=0?'up':'dn'}">${d==null?'–':(d>=0?'+':'')+eur.format(d)}</td><td class="act"><div class="row" style="gap:6px;flex-wrap:nowrap">${slips[k]?`<button class="mini" data-a="${k}" aria-label="Abrechnung ${labLong(k)} anzeigen">PDF</button>`:''}<button class="mini" data-e="${k}" aria-label="${labLong(k)} bearbeiten">✎</button><button class="mini" data-d="${k}" aria-label="${labLong(k)} löschen">✕</button></div></td></tr>`}).join('')}</tbody></table>`;
+  $('list').innerHTML=`<table><thead><tr><th>Monat</th><th>${vN()}</th><th class="list-d">zum Vormonat</th><th></th></tr></thead><tbody>${ks.map((k,j)=>{const p=ks[j+1];const v=data[k];const d=p?v-data[p]:null;return`<tr><td>${labLong(k)}</td><td>${eur.format(v)}</td><td class="list-d ${d==null?'':d>=0?'up':'dn'}">${d==null?'–':(d>=0?'+':'')+eur.format(d)}</td><td class="act"><div class="row" style="gap:6px;flex-wrap:nowrap">${slips[k]?`<button class="mini" data-a="${k}" aria-label="Abrechnung ${labLong(k)} anzeigen">PDF</button>`:''}<button class="mini" data-e="${k}" aria-label="${labLong(k)} bearbeiten">✎</button><button class="mini" data-d="${k}" aria-label="${labLong(k)} löschen">✕</button></div></td></tr>`}).join('')}</tbody></table>`;
 }
 function seedBox(){
   $('seedBox').innerHTML=sorted().length?'':`<div class="empty" style="margin-top:16px;text-align:left"><p style="margin:0">Noch keine Daten. Lade deine Verdienstabrechnungen als PDF hoch – du kannst mehrere auf einmal auswählen.</p></div>`;
 }
 function hint(){
+  $('fLab').textContent=vN()+' in € (wie bei deinen anderen Monaten)';
   const k=$('fMonth').value;const ex=KEY.test(k)&&data[k]!=null;
   $('fBtn').textContent=ex?'Aktualisieren':'Speichern';
   $('fHint').textContent=ex?`${labLong(k)} ist schon eingetragen (${eur.format(data[k])}) und wird überschrieben.`:'';
@@ -492,7 +500,7 @@ function ana(){
   if(s.uebertrag){rows.push(wfRow('Rückrechnung',cur,cur+s.uebertrag,B,PLUS,'+'+E(s.uebertrag)));cur+=s.uebertrag}
   rows.push(wfRow('Auszahlung',0,s.auszahlung,B,TOT,E(s.auszahlung),'tot'));
   const q=B?(tax+svT)/B:0;
-  const chips=[['Abgabenquote',P(q),'Steuer + Sozialvers. vom Brutto'],['Netto-Quote',P(B?s.netto/B:0),'Netto vom Brutto'],['Lohnsteuer',P(B?tax/B:0),E(tax)],['Sozialvers.',P(B?svT/B:0),E(svT)]];
+  const chips=[['Abgabenquote',P(q),`${E(tax+svT)} von ${E(B)} Brutto gehen an Finanzamt und Sozialversicherung`],['Netto-Quote',P(B?s.netto/B:0),`${E(s.netto)} Netto von ${E(B)} Brutto bleiben dir`],['Lohnsteuer',P(B?tax/B:0),`${E(tax)} vom Brutto`+(s.taxSonst?` (davon ${E(s.taxSonst)} auf die Sonderzahlung)`:'')],['Sozialversicherung',P(B?svT/B:0),`${E(svT)} vom Brutto: Kranken ${E(sv.kv)}, Rente ${E(sv.rv)}, Arbeitslosen ${E(sv.av)}, Pflege ${E(sv.pv)}`]];
   const notes=[];
   if(s.sonstBezug){
     const net=s.sonstBezug-(s.taxSonst||0)-(s.svEinmal||0);
@@ -565,6 +573,11 @@ const fh=v=>Number(v).toLocaleString('de-DE',{maximumFractionDigits:2});
 const pf=v=>(v*100).toLocaleString('de-DE',{maximumFractionDigits:1})+' %';
 const sgn=(v,f=E)=>`<span class="${v>=0?'up':'dn'}">${v>=0?'+':'−'}${f(Math.abs(v))}</span>`;
 const sgp=v=>`<span class="${v>=0?'up':'dn'}">${pct.format(v)}</span>`;
+const VALN={auszahlung:'Auszahlung',netto:'Netto',summeLfd:'Netto nach Abzügen'};
+const VALD={auszahlung:'was aufs Konto kommt: nach Lohnsteuer, Sozialversicherung und Abzügen wie Jobrad, Betriebsrente und Kantine, inklusive Nachzahlungen',netto:'nach Lohnsteuer und Sozialversicherung, vor Abzügen wie Jobrad, Betriebsrente und Kantine',summeLfd:'nach Lohnsteuer, Sozialversicherung und Abzügen wie Jobrad, Betriebsrente und Kantine, ohne Nachzahlungen'};
+const vN=()=>VALN[opts.field]||'Auszahlung';
+const bt=t=>`<span class="bt ${t==='Brutto'?'b':'n'}">${t}</span>`;
+const vInfo=()=>`<p class="hint" style="margin:0 0 12px">${bt(vN())} Alle Euro-Werte hier beruhen auf deinen Monatswerten = <b>${vN()}</b>, ${VALD[opts.field]||VALD.auszahlung}.</p>`;
 function niceStep(r){if(!(r>0))return 1;const raw=r/4,mag=10**Math.floor(Math.log10(raw)),n=raw/mag;return(n<1.5?1:n<3?2:n<7?5:10)*mag}
 function byYear(){const o={};for(const k of sorted()){const y=k.slice(0,4),m=idx(k)%12;(o[y]=o[y]||Array(12).fill(null))[m]=data[k]}return o}
 const sum=a=>a.reduce((s,v)=>s+(v||0),0);
@@ -646,13 +659,13 @@ function tJahre(el,ks){
     }else{const tot=ytd/n*12;txt=`<b>Hochrechnung ${latest}: ca. ${E(tot)}</b> – linear aus ${n} Monaten (ohne Sonderzahlungs-Saison, daher grob).`}
     proj=`<div class="note">${txt}</div>`;
   }
-  el.innerHTML=`<div class="seg"><button type="button" data-jm="m" aria-pressed="${!cum}">Monatswerte</button><button type="button" data-jm="c" aria-pressed="${cum}">Kumuliert</button></div>
+  el.innerHTML=`${vInfo()}<div class="seg"><button type="button" data-jm="m" aria-pressed="${!cum}">Monatswerte</button><button type="button" data-jm="c" aria-pressed="${cum}">Kumuliert</button></div>
   <p class="hint" style="margin:0 0 4px">${cum?'Aufsummiert über das Jahr – wo stehst du im Vergleich zum Vorjahr?':'Jede Linie ein Jahr. Tippe auf einen Monat für die Werte.'}</p>
   <div class="fig"><svg id="cJ" role="img" aria-label="Jahresvergleich"></svg></div>
   <div class="readout"><b>${MONL[jSel]}${cum?' (kumuliert)':''}</b>${rd}</div>
   ${proj}
   <h3>Jahre im Vergleich</h3>
-  <div class="scroll"><table><thead><tr><th>Jahr</th><th>Summe</th><th>Ø Monat</th><th>Ø zum Vorjahr</th><th>Jan–${MON[lastM]}</th><th>zum Vorjahr</th></tr></thead><tbody>${rows}</tbody></table></div>
+  <div class="scroll"><table><thead><tr><th>Jahr</th><th>Summe ${vN()}</th><th>Ø je Monat</th><th>Ø zum Vorjahr</th><th>Jan–${MON[lastM]}</th><th>zum Vorjahr</th></tr></thead><tbody>${rows}</tbody></table></div>
   <p class="hint" style="margin-top:8px">„Jan–${MON[lastM]}“ vergleicht jeweils denselben Zeitraum – fair auch bei unvollständigen Jahren.</p>`;
 }
 
@@ -669,7 +682,7 @@ function tMonate(el,ks){
   const pmax=Math.max(...prof.filter(v=>v!=null),1);
   const prow=prof.map((v,m)=>v==null?'':`<div class="yr"><span>${MON[m]}</span><div><div class="bar"><span style="width:${(v/pmax*100).toFixed(1)}%;${v>=1.15?'':'background:color-mix(in srgb,var(--acc) 45%,transparent)'}"></span></div>${v>=1.15?'<small>Sonderzahlungsmonat</small>':''}</div><span class="v">${Math.round(v*100)}</span></div>`).join('');
   const spec=prof.map((v,m)=>v>=1.15?MONL[m]:null).filter(Boolean);
-  el.innerHTML=`<div class="mchips">${chips}</div>
+  el.innerHTML=`${vInfo()}<div class="mchips">${chips}</div>
   ${vals.length?`<p class="lead2" style="margin-top:0">Dein bester ${MONL[mSel]} war <b>${best[0]}</b> mit <b>${E(best[1])}</b>.</p>${bars}`:'<p class="hint">Für diesen Monat gibt es noch keine Werte.</p>'}
   <h3>Saisonprofil</h3>
   <p class="hint" style="margin-top:-4px">Jeder Monat im Verhältnis zum Durchschnitt seines Jahres (100 = Durchschnitt), gemittelt über alle Jahre mit mind. 6 Monaten.${spec.length?' Auffällig hoch: '+esc(spec.join(', '))+'.':''}</p>
@@ -690,7 +703,7 @@ function tMuster(el,ks){
   const tmax=Math.max(...bx.map(o=>o.b+o.x),1);
   const brows=bx.map(o=>`<div class="yr"><span class="num" style="font-size:18px">${o.y}</span><div><div class="seg2" style="width:${((o.b+o.x)/tmax*100).toFixed(1)}%"><span style="width:${(o.b/(o.b+o.x)*100).toFixed(1)}%;background:color-mix(in srgb,var(--acc) 45%,transparent)"></span><span style="flex:1;background:var(--acc)"></span></div><small>Extra ${E(o.x)} · ${P(o.x/(o.b+o.x||1))} des Jahres</small></div><span class="v">${E(o.b+o.x)}</span></div>`).join('');
   const full=bx.filter(o=>o.n>=10);const share=full.length?sum(full.map(o=>o.x))/sum(full.map(o=>o.b+o.x)):null;
-  el.innerHTML=`<p class="hint" style="margin-top:0">Je dunkler, desto höher der Monat. Sonderzahlungen springen sofort ins Auge.</p>
+  el.innerHTML=`${vInfo()}<p class="hint" style="margin-top:0">Je dunkler, desto höher der Monat. Sonderzahlungen springen sofort ins Auge.</p>
   <div class="heat">${head}${grid}</div>
   <div class="readout">${ro}</div>
   <h3>Grundniveau und Extras</h3>
@@ -700,36 +713,38 @@ function tMuster(el,ks){
 }
 
 function tRekorde(el,ks){
-  const v=ks.map(k=>data[k]);const C=[];
+  const v=ks.map(k=>data[k]);const C=[];const VN=vN(),T=bt(VN);
   const iMax=v.indexOf(Math.max(...v)),iMin=v.indexOf(Math.min(...v));
-  C.push(['Bester Monat',E(v[iMax]),labLong(ks[iMax])]);
-  C.push(['Schwächster Monat',E(v[iMin]),labLong(ks[iMin])]);
-  let up=null,dn=null;for(let i=1;i<ks.length;i++){if(idx(ks[i])-idx(ks[i-1])!==1)continue;const d=v[i]-v[i-1];if(!up||d>up.d)up={d,k:ks[i]};if(!dn||d<dn.d)dn={d,k:ks[i]}}
-  if(up&&up.d>0)C.push(['Größter Sprung nach oben','+'+E(up.d),labLong(up.k)+' zum Vormonat']);
-  C.push(['Typischer Monat (Median)',E(median(v)),'die Hälfte der Monate liegt darüber']);
+  C.push(['Bester Monat',T,E(v[iMax]),labLong(ks[iMax])+(slips[ks[iMax]]?' · Brutto '+eur.format(slips[ks[iMax]].brutto):''),'Dein höchster Monatswert bisher – meist ein Monat mit Sonderzahlung (Urlaubs- oder Weihnachtsgeld).']);
+  C.push(['Schwächster Monat',T,E(v[iMin]),labLong(ks[iMin]),'Dein niedrigster Monatswert – meist ein Monat ohne Zulagen oder mit Nachberechnung.']);
+  let up=null;for(let i=1;i<ks.length;i++){if(idx(ks[i])-idx(ks[i-1])!==1)continue;const d=v[i]-v[i-1];if(!up||d>up.d)up={d,k:ks[i]}}
+  if(up&&up.d>0)C.push(['Größter Sprung nach oben',T,'+'+E(up.d),labLong(up.k)+' gegenüber dem Vormonat','Der größte Anstieg von einem Monat zum nächsten.']);
+  C.push(['Typischer Monat (Median)',T,E(median(v)),'aus '+ks.length+' Monaten','Die Hälfte deiner Monate liegt darüber, die Hälfte darunter. Sonderzahlungen verzerren den Median kaum – er zeigt dein „normales“ Monatsgeld.']);
   const L=idx(ks[ks.length-1]);const win=(a,b)=>ks.filter(k=>idx(k)>a&&idx(k)<=b).map(k=>data[k]);
-  const w1=win(L-12,L),w0=win(L-24,L-12);
-  if(w1.length>=10&&w0.length>=10){const g=(sum(w1)/w1.length)/(sum(w0)/w0.length)-1;C.push(['Wachstum letzte 12 Monate',pct.format(g),'Ø gegenüber den 12 Monaten davor'])}
+  const w1=win(L-12,L),w0=win(L-24,L-12);const a1=w1.length?sum(w1)/w1.length:0;
+  if(w1.length>=10&&w0.length>=10){const a0=sum(w0)/w0.length;const g=a1/a0-1;C.push(['Wachstum letzte 12 Monate',T,pct.format(g),`Ø ${eur.format(a1)} statt ${eur.format(a0)} im Monat`,`Durchschnitt der letzten 12 Monate (bis ${lab(ks[ks.length-1])}) verglichen mit den 12 Monaten davor.`])}
   const F=idx(ks[0]);const f12=win(F-1,F+11);
-  if(L-F>=23&&f12.length>=10&&w1.length>=10){const yrs=(L-F-11)/12;const tot=(sum(w1)/w1.length)/(sum(f12)/f12.length);const cagr=tot**(1/yrs)-1;
-    C.push(['Seit Beginn',pct.format(tot-1),'Ø der ersten vs. letzten 12 Monate']);
-    C.push(['Wachstum pro Jahr',pct.format(cagr),'durchschnittlich, über '+yrs.toLocaleString('de-DE',{maximumFractionDigits:1})+' Jahre']);
-    if(cagr>0.002)C.push(['Verdopplung in',(Math.log(2)/Math.log(1+cagr)).toLocaleString('de-DE',{maximumFractionDigits:0})+' Jahren','wenn es in diesem Tempo weitergeht']);
+  if(L-F>=23&&f12.length>=10&&w1.length>=10){const yrs=(L-F-11)/12;const af=sum(f12)/f12.length;const tot=a1/af;const cagr=tot**(1/yrs)-1;
+    C.push(['Seit Beginn',T,pct.format(tot-1),`Ø ${eur.format(af)} → ${eur.format(a1)} im Monat`,`Deine ersten 12 erfassten Monate (ab ${lab(ks[0])}) verglichen mit den letzten 12.`]);
+    C.push(['Wachstum pro Jahr',T,pct.format(cagr),'über '+yrs.toLocaleString('de-DE',{maximumFractionDigits:1})+' Jahre','Das Plus seit Beginn umgerechnet auf ein durchschnittliches Jahr. Enthält Tariferhöhungen, Zulagen und Sonderzahlungen.']);
+    if(cagr>0.002)C.push(['Verdopplung in',T,(Math.log(2)/Math.log(1+cagr)).toLocaleString('de-DE',{maximumFractionDigits:0})+' Jahren','bei '+pct.format(cagr)+' pro Jahr','Gedankenspiel, keine Prognose: So lange würde es dauern, wenn dein Einkommen in diesem Tempo weiter wächst.']);
   }
   const wd=Math.max(1,260-opts.vac-opts.hol),hd=opts.wh/5;
-  if(w1.length>=10){const t=sum(w1)/w1.length*12;
-    C.push(['Pro Arbeitstag',E(t/wd),wd+' Arbeitstage à '+fh(hd)+' Std.']);
-    C.push(['Pro bezahlter Stunde',E(t/(opts.wh*52)),fh(opts.wh)+' Std./Woche, inkl. Urlaub und Feiertage']);
-    C.push(['Pro gearbeiteter Stunde',E(t/(wd*hd)),'nur tatsächlich gearbeitete '+fh(Math.round(wd*hd))+' Std./Jahr']);}
+  if(w1.length>=10){const t=a1*12;
+    C.push(['Pro Arbeitstag',T,E(t/wd),`${eur.format(t)} im Jahr ÷ ${wd} Arbeitstage`,`Jahreswert aus den letzten 12 Monaten geteilt durch die Tage, an denen du wirklich arbeitest (260 Werktage − ${opts.vac} Urlaub − ${opts.hol} Feiertage), à ${fh(hd)} Std.`]);
+    C.push(['Pro bezahlter Stunde',T,E(t/(opts.wh*52)),`${eur.format(t)} ÷ ${fh(opts.wh*52)} Std.`,`Alle bezahlten Stunden: ${fh(opts.wh)} Std./Woche × 52 Wochen – Urlaub und Feiertage zählen mit, weil sie bezahlt werden.`]);
+    C.push(['Pro gearbeiteter Stunde',T,E(t/(wd*hd)),`${eur.format(t)} ÷ ${fh(Math.round(wd*hd))} Std.`,'Nur die Stunden, die du tatsächlich arbeitest. Höher als pro bezahlter Stunde, weil Urlaub und Feiertage bezahlt sind, ohne dass du arbeitest.']);}
   const ls=Object.keys(slips).filter(k=>KEY.test(k)).sort().pop();
-  if(ls){const sl=slips[ls];const lfd=(sl.steuerbrutto||0)-(sl.sonstBezug||0);if(lfd>0)C.push(['Brutto-Stundenlohn',E(lfd/(opts.wh*52/12)),'laufendes Brutto '+lab(ls)+' ÷ '+fh(Math.round(opts.wh*52/12*10)/10)+' Std./Monat'])}
-  let cur=0,best=0,bestEnd=null;for(const k of ks){const pk=key(idx(k)-12);if(data[pk]==null){continue}if(data[k]>data[pk]){cur++;if(cur>best){best=cur;bestEnd=k}}else cur=0}
-  if(best>=2)C.push(['Längste Serie über Vorjahr',best+' Monate','bis '+labLong(bestEnd)+(cur===best?' – läuft noch':'')]);
-  C.push(['Gesamt seit '+lab(ks[0]),E(sum(v)),ks.length+' Monate erfasst']);
-  el.innerHTML=`<div class="prev" style="margin-bottom:14px"><b>Deine Arbeitszeit</b>
+  if(ls){const sl=slips[ls];const lfd=(sl.steuerbrutto||0)-(sl.sonstBezug||0);const mh=opts.wh*52/12;if(lfd>0){
+    C.push(['Stundenlohn',bt('Brutto'),E(lfd/mh),`${eur.format(lfd)} ÷ ${fh(Math.round(mh*10)/10)} Std./Monat`,`Laufendes Brutto aus der Abrechnung ${lab(ls)} (ohne Sonderzahlungen) geteilt durch die Monatsstunden (${fh(opts.wh)} × 52 ÷ 12). Vor Steuer und Sozialversicherung.`]);
+    const nq=sl.brutto?sl.netto/sl.brutto:0;if(nq)C.push(['Stundenlohn',bt('Netto'),E(lfd/mh*(1-(sl.taxLfd+(sl.svTotal-sl.svEinmal))/(lfd||1))),'laufend, nach Steuer und SV','Der Brutto-Stundenlohn abzüglich deines laufenden Steuer- und SV-Satzes aus derselben Abrechnung – ohne Sonderzahlungen und ohne Abzüge wie Jobrad oder bAV.'])}}
+  let cur=0,best=0,bestEnd=null;for(const k of ks){const pk=key(idx(k)-12);if(data[pk]==null)continue;if(data[k]>data[pk]){cur++;if(cur>best){best=cur;bestEnd=k}}else cur=0}
+  if(best>=2)C.push(['Längste Serie über Vorjahr',T,best+' Monate','bis '+labLong(bestEnd)+(cur===best?' – läuft noch':''),'So viele Monate in Folge hast du mehr bekommen als im gleichen Monat des Vorjahres.']);
+  C.push(['Gesamt seit '+lab(ks[0]),T,E(sum(v)),ks.length+' Monate erfasst','Summe aller erfassten Monatswerte.']);
+  el.innerHTML=`${vInfo()}<div class="prev" style="margin-bottom:14px"><b>Deine Arbeitszeit</b>
   <div class="wt"><label>Std./Woche<input id="wH" inputmode="decimal" value="${fh(opts.wh)}"></label><label>Urlaubstage<input id="wV" inputmode="numeric" value="${opts.vac}"></label><label>Feiertage<input id="wF" inputmode="numeric" value="${opts.hol}"></label></div>
   <p class="hint" style="margin:0" id="wMsg">Wird für die Stunden- und Tageswerte verwendet. Feiertage = die auf Werktage fallen (Baden-Württemberg meist 10–12).</p></div>
-  <div class="cards">${C.map(([l,n,s])=>`<div class="card"><span class="l">${esc(l)}</span><span class="num">${n}</span><span class="s">${esc(s)}</span></div>`).join('')}</div>`;
+  <div class="cards">${C.map(([l,b,n,s,x])=>`<div class="card"><span class="l">${esc(l)}${b}</span><span class="num">${n}</span><span class="s">${esc(s)}</span><span class="x">${esc(x)}</span></div>`).join('')}</div>`;
 }
 
 function tBrutto(el){
@@ -756,13 +771,13 @@ function tBrutto(el){
   const firstB=S.map(k=>[k,base(slips[k])]).find(x=>x[1]!=null);
   let raise='';
   if(firstB){
-    raise=`<h3>Gehaltserhöhungen</h3><p class="hint" style="margin-top:-4px">Erkannt an der Lohnart Grundentgelt.</p>`+
+    raise=`<h3>Gehaltserhöhungen</h3><p class="hint" style="margin-top:-4px">${bt('Brutto')}Erkannt an der Lohnart Grundentgelt – ohne Zulagen und Sonderzahlungen.</p>`+
     (ch.length?`<div class="scroll"><table><thead><tr><th>Ab</th><th>Vorher</th><th>Neu</th><th>Plus</th></tr></thead><tbody>${ch.slice().reverse().map(c=>`<tr><td>${esc(labLong(c.k))}</td><td>${E(c.from)}</td><td>${E(c.to)}</td><td>${sgp(c.to/c.from-1)}</td></tr>`).join('')}</tbody></table></div>`+
       (prev&&firstB[0]!==prev.k?`<p class="hint" style="margin-top:8px">Insgesamt seit ${esc(labLong(firstB[0]))}: ${E(firstB[1])} → ${E(prev.b)} (${pct.format(prev.b/firstB[1]-1)}).</p>`:'')
     :`<p class="hint">Grundentgelt aktuell ${E(prev.b)} – seit ${esc(labLong(firstB[0]))} unverändert.</p>`);
   }
-  el.innerHTML=`${top}
-  ${yrows?`<h3>Jahreswerte laut Abrechnung</h3><div class="scroll"><table><thead><tr><th>Jahr</th><th>Brutto</th><th>Lohnsteuer</th><th>Sozialvers.</th><th>Quote</th></tr></thead><tbody>${yrows}</tbody></table></div>`:''}
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Diese Werte kommen direkt aus deinen hochgeladenen Abrechnungen. ${bt('Brutto')} vor Steuer und Sozialversicherung · ${bt('Netto')} nach Steuer und Sozialversicherung · Auszahlung = was aufs Konto kommt.</p>${top}
+  ${yrows?`<h3>Jahreswerte laut Abrechnung</h3><p class="hint" style="margin-top:-4px">Aus dem Block „Jahreswerte“ der jeweils letzten Abrechnung eines Jahres. ${bt('Brutto')} Gesamtbrutto inkl. Sonderzahlungen; Quote = Lohnsteuer + Sozialversicherung im Verhältnis zum Brutto.</p><div class="scroll"><table><thead><tr><th>Jahr</th><th>Brutto</th><th>Lohnsteuer</th><th>Sozialvers.</th><th>Quote</th></tr></thead><tbody>${yrows}</tbody></table></div>`:''}
   ${raise}`;
 }
 
