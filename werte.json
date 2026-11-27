@@ -3,43 +3,187 @@
   "stand": "2026-11-27",
   "hinweis": "Tarif- und Rechenwerte für die Gehaltsverlauf-App. Wird monatlich automatisch geprüft und aktualisiert. Nur Zahlen und kurze Texte, keine persönlichen Daten.",
   "meldungen": [
-    { "datum": "2026-10-01", "text": "Tarifrunde Metall und Elektro 2026 läuft – die ERA-Tabelle ab 1.4.2026 gilt bis 31.10.2026. Neue Werte kommen nach dem Abschluss.", "quelle": "https://www.igmetall.de/tarif/tarifrunden/metall-und-elektro" },
-    { "datum": "2026-04-01", "text": "Tariferhöhung Metall und Elektro: +3,1 % ab April 2026, T-ZUG B steigt auf 26,5 %.", "quelle": "https://www.igmetall.de/tarif/tarifrunden/metall-und-elektro" },
-    { "datum": "2026-07-01", "text": "Aktueller Rentenwert steigt auf 42,52 €.", "quelle": "https://www.gesetze-im-internet.de/rwbestv_2026/" }
+    {
+      "datum": "2026-10-01",
+      "text": "Tarifrunde Metall und Elektro 2026 läuft – die ERA-Tabelle ab 1.4.2026 gilt bis 31.10.2026. Neue Werte kommen nach dem Abschluss.",
+      "quelle": "https://www.igmetall.de/tarif/tarifrunden/metall-und-elektro"
+    },
+    {
+      "datum": "2026-04-01",
+      "text": "Tariferhöhung Metall und Elektro: +3,1 % ab April 2026, T-ZUG B steigt auf 26,5 %.",
+      "quelle": "https://www.igmetall.de/tarif/tarifrunden/metall-und-elektro"
+    },
+    {
+      "datum": "2026-07-01",
+      "text": "Aktueller Rentenwert steigt auf 42,52 €.",
+      "quelle": "https://www.gesetze-im-internet.de/rwbestv_2026/"
+    }
   ],
   "era_bw": {
     "gueltig_ab": "2026-04-01",
     "gueltig_bis": "2026-10-31",
     "wochenstunden": 35,
-    "grundentgelt": { "EG 10": 4499.5, "EG 11": 4796, "EG 12": 5129, "EG 13": 5462.5, "EG 14": 5795.5, "EG 15": 6129, "EG 16": 6536.5, "EG 17": 6906.5 },
+    "grundentgelt": {
+      "EG 10": 4499.5,
+      "EG 11": 4796,
+      "EG 12": 5129,
+      "EG 13": 5462.5,
+      "EG 14": 5795.5,
+      "EG 15": 6129,
+      "EG 16": 6536.5,
+      "EG 17": 6906.5
+    },
     "quelle": "https://tarifvertrag-online.de/entgelttabelle/metall-elektro/ig-metall/baden-wuerttemberg"
   },
   "tarif_schritte": [
-    { "ab": "2023-06", "prozent": 5.2 },
-    { "ab": "2024-05", "prozent": 3.3 },
-    { "ab": "2025-04", "prozent": 2.0 },
-    { "ab": "2026-04", "prozent": 3.1 }
+    {
+      "ab": "2023-06",
+      "prozent": 5.2
+    },
+    {
+      "ab": "2024-05",
+      "prozent": 3.3
+    },
+    {
+      "ab": "2025-04",
+      "prozent": 2.0
+    },
+    {
+      "ab": "2026-04",
+      "prozent": 3.1
+    }
   ],
-  "tzug_b": { "2025": 651.48, "2026": 952.00 },
-  "rentenwert": { "wert": 42.52, "ab": "2026-07-01" },
-  "durchschnittsentgelt": { "2023": 44732, "2024": 47085, "2025": 50493, "2026": 51944 },
+  "tzug_b": {
+    "2025": 651.48,
+    "2026": 952.0
+  },
+  "rentenwert": {
+    "wert": 42.52,
+    "ab": "2026-07-01"
+  },
+  "durchschnittsentgelt": {
+    "2023": 44732,
+    "2024": 47085,
+    "2025": 50493,
+    "2026": 51944
+  },
   "vpi": {
     "basis": "2020=100",
-    "jahre": { "2023": 116.7, "2024": 119.3, "2025": 121.9 },
-    "monate": { "2025-01": 120.3, "2025-02": 120.8, "2025-03": 121.2, "2025-04": 121.7, "2025-05": 121.8, "2025-06": 121.8, "2025-07": 122.2, "2025-08": 122.3, "2025-09": 122.6, "2025-10": 123.0, "2025-11": 122.7, "2025-12": 122.7, "2026-01": 122.8, "2026-02": 123.1, "2026-03": 124.5, "2026-04": 125.2, "2026-05": 125.0 },
+    "jahre": {
+      "2023": 116.7,
+      "2024": 119.3,
+      "2025": 121.9
+    },
+    "monate": {
+      "2025-01": 120.3,
+      "2025-02": 120.8,
+      "2025-03": 121.2,
+      "2025-04": 121.7,
+      "2025-05": 121.8,
+      "2025-06": 121.8,
+      "2025-07": 122.2,
+      "2025-08": 122.3,
+      "2025-09": 122.6,
+      "2025-10": 123.0,
+      "2025-11": 122.7,
+      "2025-12": 122.7,
+      "2026-01": 122.8,
+      "2026-02": 123.1,
+      "2026-03": 124.5,
+      "2026-04": 125.2,
+      "2026-05": 125.0
+    },
     "quelle": "https://www.statistikportal.de/de/deutschland-insgesamt/preise-verdienste-und-arbeitskosten"
   },
   "krankenkassen": [
-    { "name": "BKK firmus", "zusatz": 2.18 },
-    { "name": "TUI BKK", "zusatz": 2.5 },
-    { "name": "hkk", "zusatz": 2.59 },
-    { "name": "Audi BKK", "zusatz": 2.6 },
-    { "name": "Techniker (TK)", "zusatz": 2.69 },
-    { "name": "Ø 2026 (amtlich)", "zusatz": 2.9 },
-    { "name": "Barmer", "zusatz": 3.29 }
+    {
+      "name": "BKK firmus",
+      "zusatz": 2.18
+    },
+    {
+      "name": "TUI BKK",
+      "zusatz": 2.5
+    },
+    {
+      "name": "hkk",
+      "zusatz": 2.59
+    },
+    {
+      "name": "Audi BKK",
+      "zusatz": 2.6
+    },
+    {
+      "name": "Techniker (TK)",
+      "zusatz": 2.69
+    },
+    {
+      "name": "Ø 2026 (amtlich)",
+      "zusatz": 2.9
+    },
+    {
+      "name": "Barmer",
+      "zusatz": 3.29
+    }
   ],
   "destatis_vollzeit": {
     "jahr": 2025,
-    "perzentile": [ { "p": 10, "euro": 33828 }, { "p": 30, "euro": 44215 }, { "p": 50, "euro": 54066 }, { "p": 80, "euro": 80000 }, { "p": 90, "euro": 100719 }, { "p": 99, "euro": 219110 } ]
+    "perzentile": [
+      {
+        "p": 10,
+        "euro": 33828
+      },
+      {
+        "p": 30,
+        "euro": 44215
+      },
+      {
+        "p": 50,
+        "euro": 54066
+      },
+      {
+        "p": 80,
+        "euro": 80000
+      },
+      {
+        "p": 90,
+        "euro": 100719
+      },
+      {
+        "p": 99,
+        "euro": 219110
+      }
+    ]
+  },
+  "steuer_sv": {
+    "jahr": 2026,
+    "hinweis": "Einkommensteuertarif § 32a EStG (Grundtabelle) und Sozialversicherungswerte. est: gf=Grundfreibetrag; Zone 2 bis s1: (a1*y+b1)*y mit y=(z-gf)/10000; Zone 3 bis s2: (a2*q+b2)*q+c2 mit q=(z-s1)/10000; Zone 4 bis s3: r3*z-c3; darüber r4*z-c4. Beträge in Euro pro Jahr, BBG pro Monat, Sätze als Dezimalzahl.",
+    "est": {
+      "gf": 12348,
+      "s1": 17799,
+      "a1": 914.51,
+      "b1": 1400,
+      "s2": 69878,
+      "a2": 173.1,
+      "b2": 2397,
+      "c2": 1034.87,
+      "s3": 277825,
+      "r3": 0.42,
+      "c3": 11135.63,
+      "r4": 0.45,
+      "c4": 19470.38
+    },
+    "bbg_kv": 5812.5,
+    "bbg_rv": 8450.0,
+    "an_pauschbetrag": 1230,
+    "sonderausgaben_pausch": 36,
+    "pendlerpauschale": 0.38,
+    "homeoffice_tag": 6,
+    "homeoffice_max": 1260,
+    "kv_freibetrag_versorgung": 197.75,
+    "rv_an_satz": 0.093,
+    "umlage_inso": 0.0015,
+    "umlage_u2": 0.005,
+    "umlage_uv": 0.008,
+    "quelle": "https://www.gesetze-im-internet.de/estg/__32a.html"
   }
 }
