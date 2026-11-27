@@ -228,8 +228,9 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.8.3';
+const VERSION='1.9.0';
 const CHANGELOG=[
+  ['1.9.0','27.11.2026','Neuer Reiter Rentenrechner: fiktive Hochrechnung von gesetzlicher Rente (brutto und netto), Betriebsrente und privatem Sparen bis zum Rentenbeginn, mit Rentenlücke – alles in heutiger Kaufkraft.'],
   ['1.8.3','27.11.2026','Fix: Bei mehreren Sonderzahlungen in einem Monat (z. B. Sonderzahlung + T-ZUG) wurden Steuer und SV bei älteren Uploads einer Zahlung allein zugeordnet.'],
   ['1.8.2','27.11.2026','Zuschläge nach Art getrennt (Rufbereitschaft, Nacht, Sonn-/Feiertag, Überstunden) mit Jahresübersicht und Einheiten. Steuerfreier Anteil wird nicht mehr doppelt gezählt.'],
   ['1.8.1','27.11.2026','Gehaltserhöhung-Simulation: Tarifentgelt ohne Sonderzahlungen, Zuschläge und VWL.'],
@@ -247,7 +248,7 @@ const CHANGELOG=[
   ['1.1.0','24.11.2026','Installierbar als App (PWA), funktioniert offline. Versionsanzeige mit Änderungsverlauf. Backup als Datei speichern und laden.'],
   ['1.0.0','24.11.2026','Erste Version: Monate eintragen, Verlauf mit 12-Monats-Schnitt, Kennzahlen, Jahresübersicht, Import der Excel-Werte.']
 ];
-let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10,km:0,ho:0,wm:0,goal:0,sq:15,ret:5,raise:3,raiseFrom:''};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
+let data={};let slips={};const OPTD={field:'auszahlung',wh:40,vac:30,hol:10,km:0,ho:0,wm:0,goal:0,sq:15,ret:5,raise:3,raiseFrom:'',rGj:0,rRa:67,rPre:0,rPY:0,rRw:2,rInf:2,rBav:null,rBavR:2,rNeed:80};let opts={...OPTD};let anaMonth=null;let lastDel=null;let toastT;
 
 const idx=k=>{const[y,m]=k.split('-').map(Number);return y*12+m-1};
 const key=i=>Math.floor(i/12)+'-'+String(i%12+1).padStart(2,'0');
@@ -617,11 +618,11 @@ function chart(id,o){charts[id]=()=>lineChart(id,o)}
 
 function analysis(){
   const ks=sorted();const band=$('anlBand');band.hidden=ks.length<2;if(band.hidden){$('anl').innerHTML='';return}
-  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],['brutto','Brutto & Abgaben'],['steuer','Steuer & Netto'],['extras','Zuschläge & Sonderzahlungen'],['vorsorge','Rente & Vorsorge'],['kaufkraft','Kaufkraft'],['ziele','Ziele & Sparen'],['check','Auffälligkeiten']];
+  const tabs=[['jahre','Jahr zu Jahr'],['monate','Monat im Vergleich'],['muster','Muster'],['rekorde','Rekorde'],['brutto','Brutto & Abgaben'],['steuer','Steuer & Netto'],['extras','Zuschläge & Sonderzahlungen'],['vorsorge','Rente & Vorsorge'],['rechner','Rentenrechner'],['kaufkraft','Kaufkraft'],['ziele','Ziele & Sparen'],['check','Auffälligkeiten']];
   if(!tabs.some(t=>t[0]===aTab))aTab='jahre';
   $('anlTabs').innerHTML=tabs.map(([k,t])=>`<button type="button" role="tab" aria-selected="${k===aTab}" data-t="${k}">${t}</button>`).join('');
   for(const k in charts)delete charts[k];
-  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto,steuer:tSteuer,extras:tExtras,vorsorge:tVorsorge,kaufkraft:tKaufkraft,ziele:tZiele,check:tCheck})[aTab]($('anl'),ks);
+  ({jahre:tJahre,monate:tMonate,muster:tMuster,rekorde:tRekorde,brutto:tBrutto,steuer:tSteuer,extras:tExtras,vorsorge:tVorsorge,rechner:tRechner,kaufkraft:tKaufkraft,ziele:tZiele,check:tCheck})[aTab]($('anl'),ks);
   for(const f of Object.values(charts))f();
 }
 $('anlTabs').addEventListener('click',e=>{const b=e.target.closest('button[data-t]');if(!b)return;aTab=b.dataset.t;analysis()});
@@ -947,6 +948,60 @@ function tVorsorge(el){
   <h3>Bilanz: Betriebsrente, Jobrad & Co.</h3>
   <p class="hint" style="margin-top:-4px">Über alle hochgeladenen Abrechnungen summiert. ${bt('Netto')} = was es dich wirklich gekostet hat.</p>
   ${gh||'<p class="hint">Nichts gefunden.</p>'}`;
+}
+
+/* Rentenrechner (fiktiv) */
+function rvPoints(){
+  const S=Object.keys(slips).filter(k=>KEY.test(k)).sort();const yl={};for(const k of S)if(slips[k].year)yl[k.slice(0,4)]=k;
+  let tot=0,proj=0,n=0;for(const y of Object.keys(yl)){const s=slips[yl[y]],o=s.year,mo=+yl[y].slice(5);const rvB=o.svBrutto??(o.svParts?o.svParts.rv/0.093:null);if(!rvB||!DE[y])continue;const p=rvB/DE[y];tot+=p;proj+=mo<12?p/mo*12:p;n++}
+  const bav=[];for(const k of S){const g=groupsOf(slips[k])['Betriebsrente (bAV)'];if(g)bav.push(g.umw||-g.cut)}
+  return{tot,perYear:n?proj/n:0,bav:bav.length?sum(bav)/bav.length:0};
+}
+function tRechner(el,ks){
+  const rv=rvPoints();const s=lastSlip();
+  const L=idx(ks[ks.length-1]);const w=ks.filter(k=>idx(k)>L-12).map(k=>data[k]);const a1=w.length?sum(w)/w.length:0;
+  const nowY=Math.floor(L/12)+((L%12)+1)/12;
+  const pY=opts.rPY>0?opts.rPY:rv.perYear,bavM=opts.rBav>=0&&opts.rBav!==''&&opts.rBav!=null?opts.rBav:rv.bav;
+  const inputs=`<div class="prev"><b>Deine Annahmen</b>
+  <div class="wt">${oIn('rGj','Geburtsjahr',opts.rGj||'',1940,2015)}${oIn('rRa','Rentenalter',fh(opts.rRa),60,75)}${oIn('rPre','Punkte vorher',fh(opts.rPre||0),0,100)}</div>
+  <div class="wt">${oIn('rPY','Punkte/Jahr',fh(Math.round(pY*100)/100),0,3)}${oIn('rRw','Rentenwert +% p. a.',fh(opts.rRw),-2,8)}${oIn('rInf','Inflation % p. a.',fh(opts.rInf),-2,10)}</div>
+  <div class="wt">${oIn('rBav','bAV €/Monat',fh(Math.round(bavM)),0,5000)}${oIn('rBavR','bAV-Zins %',fh(opts.rBavR),-2,10)}${oIn('rNeed','Bedarf % vom Netto',fh(opts.rNeed),10,150)}</div>
+  <p class="hint" style="margin:0">„Punkte vorher“: Entgeltpunkte vor deinen hochgeladenen Abrechnungen – stehen in deiner Renteninformation der Deutschen Rentenversicherung. „Punkte/Jahr“ ist mit deinem aktuellen Wert vorbelegt (${fh(Math.round(rv.perYear*100)/100)}); 1,0 = Durchschnittsverdienst.</p></div>`;
+  if(!opts.rGj){el.innerHTML=`<p class="hint" style="margin:0 0 12px">Ein Gedankenspiel: Was käme heraus, wenn alles so weiterläuft wie jetzt? Trage dein Geburtsjahr ein, um zu starten.</p>${inputs}`;return}
+  const retY=opts.rGj+opts.rRa,n=Math.max(0,retY-nowY);
+  const PT=(opts.rPre||0)+rv.tot+pY*n;
+  const gHeute=PT*RENTENWERT,gNom=gHeute*(1+opts.rRw/100)**n,gReal=gNom/(1+opts.rInf/100)**n;
+  const kvR=0.073+((s&&s.info&&s.info.kkZusatz)||2.9)/200,pvR=0.042;
+  const kv=gReal*kvR,pv=gReal*pvR,taxable=Math.max(0,gReal*12-102-(kv+pv)*12),tax=estC(taxable)/12,gNet=gReal-kv-pv-tax;
+  const fvM=(m,r,yrs)=>{const i=r/1200;return i?m*((1+i)**(yrs*12)-1)/i:m*yrs*12};
+  const disc=(1+opts.rInf/100)**n;
+  const bavK=fvM(bavM,opts.rBavR,n)/disc,bavR=bavK/300;
+  const priv=opts.sq>0?fvM(a1*opts.sq/100,opts.ret,n)/disc:0,privR=priv/300;
+  const need=a1*opts.rNeed/100,gap=need-gNet-bavR-privR;
+  const tot=gNet+bavR+privR,mx=Math.max(need,tot+Math.max(0,gap),1);
+  const ms=[];for(let a=Math.ceil((nowY-opts.rGj)/10)*10;a<=opts.rRa;a+=10){const y=opts.rGj+a;if(y<nowY)continue;const pp=(opts.rPre||0)+rv.tot+pY*(y-nowY);ms.push([a,y,pp])}
+  ms.push([opts.rRa,retY,PT]);
+  el.innerHTML=`<p class="hint" style="margin:0 0 12px">Fiktive, stark vereinfachte Hochrechnung – keine Rentenauskunft. Alle Beträge in <b>heutiger Kaufkraft</b> (inflationsbereinigt), damit du sie mit deinem heutigen Einkommen vergleichen kannst.</p>
+  ${inputs}
+  <p class="lead2" style="margin-top:18px">Rentenbeginn <b>${Math.floor(retY)}</b> mit ${opts.rRa} – in ${fh(Math.round(n*10)/10)} Jahren. Gesetzliche Rente ca. <b>${E(gReal)}</b> brutto, <b>${E(gNet)}</b> netto im Monat.</p>
+  <div class="cards">
+  ${card('Rentenpunkte bei Rentenbeginn','',fh(Math.round(PT*100)/100),`${fh(Math.round(((opts.rPre||0)+rv.tot)*100)/100)} bisher + ${fh(Math.round(pY*n*100)/100)} künftig`,`Bisher: ${fh(Math.round((opts.rPre||0)*100)/100)} eingetragen + ${fh(Math.round(rv.tot*100)/100)} aus deinen Abrechnungen. Künftig: ${fh(Math.round(pY*100)/100)} Punkte × ${fh(Math.round(n*10)/10)} Jahre.`)}
+  ${card('Gesetzliche Rente',bt('Brutto'),E(gReal),`heutige Kaufkraft · nominal ${E(gNom)}`,`${fh(Math.round(PT*100)/100)} Punkte × ${eur.format(RENTENWERT)} (Rentenwert heute) = ${E(gHeute)}. Nominal wächst der Rentenwert mit ${fh(opts.rRw)} % pro Jahr, abgezinst mit ${fh(opts.rInf)} % Inflation.`)}
+  ${card('Gesetzliche Rente',bt('Netto'),E(gNet),`− KV ${E(kv)} · PV ${E(pv)} · Steuer ${E(tax)}`,`Krankenversicherung ${P(kvR)} (halber Satz + halber Zusatzbeitrag), Pflegeversicherung ${P(pvR)} (voller Satz, ohne Kinder), Einkommensteuer nach heutigem Tarif bei voll steuerpflichtiger Rente, ohne weitere Einkünfte.`)}
+  ${card('Rentenlücke',bt('Netto'),gap>0?E(gap):'keine',`Bedarf ${fh(opts.rNeed)} % von ${E(a1)} = ${E(need)}`,gap>0?`So viel fehlt monatlich, wenn du im Alter ${fh(opts.rNeed)} % deines heutigen Monatswerts (${vN()}) haben möchtest – nach gesetzlicher Rente, bAV und Sparen.`:'Gesetzliche Rente, bAV und Sparen decken deinen angenommenen Bedarf.')}
+  </div>
+  <h3>Was im Alter zusammenkommt</h3>
+  <div class="legend2"><span><i style="background:var(--y0)"></i>Gesetzl. Rente netto</span><span><i style="background:var(--y2)"></i>Betriebsrente</span><span><i style="background:var(--y1)"></i>Privat gespart</span><span><i style="background:var(--neg)"></i>Lücke</span></div>
+  <div class="yr" style="grid-template-columns:5.5em minmax(0,1fr) auto"><span>Bedarf</span><div><div class="seg2" style="width:${(need/mx*100).toFixed(1)}%;height:18px"><span style="width:100%;background:var(--y5)"></span></div></div><span class="v">${E(need)}</span></div>
+  <div class="yr" style="grid-template-columns:5.5em minmax(0,1fr) auto"><span>Im Alter</span><div><div class="seg2" style="width:${((tot+Math.max(0,gap))/mx*100).toFixed(1)}%;height:18px">${[[gNet,'var(--y0)'],[bavR,'var(--y2)'],[privR,'var(--y1)'],[Math.max(0,gap),'var(--neg)']].map(([v,c])=>`<span style="width:${(v/(tot+Math.max(0,gap))*100).toFixed(2)}%;background:${c}"></span>`).join('')}</div></div><span class="v">${E(tot)}</span></div>
+  <div class="poslist" style="margin-top:12px">
+   <div class="pos"><div class="pt"><span class="pn">Gesetzliche Rente netto</span><b>${E(gNet)}</b></div></div>
+   <div class="pos"><div class="pt"><span class="pn">Betriebsrente</span><b>${E(bavR)}</b></div><div class="pd">${E(bavM)} im Monat × ${fh(Math.round(n*10)/10)} Jahre mit ${fh(opts.rBavR)} % → Kapital ${E(bavK)} (heutige Kaufkraft), auf 25 Jahre verteilt. Vor Steuern und KV/PV.</div></div>
+   <div class="pos"><div class="pt"><span class="pn">Privat gespart</span><b>${E(privR)}</b></div><div class="pd">${opts.sq>0?`${fh(opts.sq)} % von ${E(a1)} mit ${fh(opts.ret)} % Rendite (Einstellung unter „Ziele & Sparen“) → ${E(priv)}, auf 25 Jahre verteilt. Vor Steuern.`:'Sparquote unter „Ziele & Sparen“ einstellen.'}</div></div>
+   <div class="pos tot"><div class="pt"><span class="pn">Zusammen</span><b>${E(tot)}</b></div><div class="pd">${P(tot/(a1||1))} deines heutigen Monatswerts (${E(a1)})</div></div></div>
+  <h3>Entwicklung deiner Rentenpunkte</h3>
+  <div class="scroll"><table><thead><tr><th>Alter</th><th>Jahr</th><th>Punkte</th><th>Rente heute brutto</th></tr></thead><tbody>${ms.map(([a,y,pp])=>`<tr><td>${a}</td><td>${Math.floor(y)}</td><td>${fh(Math.round(pp*100)/100)}</td><td>${E(pp*RENTENWERT)}</td></tr>`).join('')}</tbody></table></div>
+  <p class="hint" style="margin-top:8px">Annahmen: gleichbleibende Punkte pro Jahr (dein Gehalt wächst wie der Durchschnitt aller Versicherten), keine Abschläge, keine Zeiten ohne Beiträge, heutiges Steuer- und Beitragsrecht. Rentenwert heute ${eur.format(RENTENWERT)} (seit 1.7.2026). Verbindlich ist nur deine Renteninformation der Deutschen Rentenversicherung.</p>`;
 }
 
 /* 7: Kaufkraft */
