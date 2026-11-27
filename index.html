@@ -240,8 +240,9 @@ const eur=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR'});
 const eur0=new Intl.NumberFormat('de-DE',{style:'currency',currency:'EUR',maximumFractionDigits:0});
 const pct=new Intl.NumberFormat('de-DE',{style:'percent',maximumFractionDigits:1,signDisplay:'always'});
 const KEY=/^\d{4}-(0[1-9]|1[0-2])$/;
-const VERSION='1.13.0';
+const VERSION='1.13.1';
 const CHANGELOG=[
+  ['1.13.1','27.11.2026','Fix: Updates werden zuverlässig geladen (Service Worker umgeht den Browser-Cache).'],
   ['1.13.0','27.11.2026','Neue Reiter: Abgaben (Arbeitgeberkosten, Tag der Abgabenfreiheit, wohin die Abgaben gehen, kalte Progression), Vergleiche (Betriebsrente vs. ETF, Jobrad vs. Kauf, Rufbereitschaft pro Stunde, Erhöhungen vs. Tarif) und Prognosen (Jahresende, Lebensverdienst).'],
   ['1.12.1','27.11.2026','Erklärungen zu allen Eingabefeldern: auf das ? tippen.'],
   ['1.12.0','27.11.2026','Neue Reiter: Absicherung (Krankengeld, Arbeitslosengeld I, Elterngeld), Was wäre wenn (Teilzeit, höhere Entgeltgruppe nach ERA-Tabelle BW, Steuerklasse & Heirat, Krankenkassenwechsel) und Einordnung (Preis in Arbeitszeit, Vergleich mit Deutschland).'],
